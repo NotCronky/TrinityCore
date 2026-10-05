@@ -31,6 +31,7 @@ namespace
         switch (opcode)
         {
             case SMSG_CHAR_ENUM:
+            case SMSG_CLIENT_CONTROL_UPDATE:
             case SMSG_NEW_WORLD:
             case MSG_MOVE_TELEPORT_ACK:
                 return true;
@@ -74,6 +75,13 @@ void Bot::QueueClientPacket(WorldPacket* packet)
     _session->QueuePacket(packet);
 }
 
+void Bot::SetActiveMover(ObjectGuid guid)
+{
+    WorldPacket* packet = new WorldPacket(CMSG_SET_ACTIVE_MOVER, 8);
+    *packet << guid;
+    QueueClientPacket(packet);
+}
+
 void Bot::HandlePacket(WorldPacket& packet)
 {
     switch (packet.GetOpcode())
@@ -89,22 +97,46 @@ void Bot::HandlePacket(WorldPacket& packet)
             _state = State::LoggingIn;
             break;
         }
-        // A far teleport waits for the client to load the new map.
+        // Given control of a unit (its character, after logging in or teleporting): like a client, say it
+        // is the one being moved, or the server ignores the bot's movement packets (teleport replies too).
+        case SMSG_CLIENT_CONTROL_UPDATE:
+        {
+            ObjectGuid guid;
+            uint8 allowMove = 0;
+            packet.rpos(0);
+            packet >> guid.ReadAsPacked();
+            packet >> allowMove;
+            if (!allowMove)
+                break;
+
+            SetActiveMover(guid);
+            break;
+        }
+        // A far teleport waits for the client to load the new map; a client then says again which unit it moves.
         case SMSG_NEW_WORLD:
             if (Player* player = _session->GetPlayer(); player && player->IsBeingTeleportedFar())
+            {
                 _session->HandleMoveWorldportAck();
+                SetActiveMover(player->GetGUID());
+            }
             break;
         // A near teleport waits for the client to confirm it.
         case MSG_MOVE_TELEPORT_ACK:
         {
-            ObjectGuid guid;
+            Player* player = _session->GetPlayer();
+            if (!player)
+                break;
+
+            // The packet's guid comes from the character's movement info, which stays empty until the
+            // client has sent a movement packet; a client knows it is the one teleported, and so does the bot.
+            ObjectGuid packetGuid;
             uint32 ackIndex = 0;
             packet.rpos(0);
-            packet >> guid.ReadAsPacked();
+            packet >> packetGuid.ReadAsPacked();
             packet >> ackIndex;
 
             WorldPacket* ack = new WorldPacket(MSG_MOVE_TELEPORT_ACK, 8 + 4 + 4);
-            *ack << guid.WriteAsPacked();
+            *ack << player->GetGUID().WriteAsPacked();
             *ack << uint32(ackIndex);
             *ack << uint32(GameTime::GetGameTimeMS());
             QueueClientPacket(ack);
@@ -141,6 +173,9 @@ bool Bot::Update(uint32 diff)
         case State::LoggingIn:
             if (Player* player = _session->GetPlayer(); player && player->IsInWorld())
             {
+                // A client says which unit it moves once it is in the world; the server ignores the
+                // movement packets of a client that hasn't, such as the reply to a teleport.
+                SetActiveMover(player->GetGUID());
                 _state = State::InWorld;
                 TC_LOG_INFO("module", "mod-bots: {} is in the world.", _name);
                 break;

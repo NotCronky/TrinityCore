@@ -58,6 +58,8 @@ public:
 private:
     void HandlePacket(WorldPacket& packet);
     void QueueClientPacket(WorldPacket* packet);
+    // CMSG_SET_ACTIVE_MOVER: the unit the bot moves, needed before the server accepts its movement packets.
+    void SetActiveMover(ObjectGuid guid);
 
     ObjectGuid _guid;
     uint32 _accountId;
