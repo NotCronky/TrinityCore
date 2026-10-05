@@ -123,13 +123,15 @@ private:
     bool Loot(Player* bot);
     bool VisitVendor(Player* bot);
     void Dead(Player* bot);
-    bool HandIn(Player* bot);
+    // nearbyOnly: only quests whose ender is close; far ones wait until there is nothing left to hunt here.
+    bool HandIn(Player* bot, bool nearbyOnly);
     bool TakeQuests(Player* bot);
     bool Hunt(Player* bot);
     bool Grind(Player* bot);
     bool Travel(Player* bot);
 
-    void MoveTo(Player* bot, Position const& pos);
+    // spread: aims for a random spot this far around pos, so bots going to the same place don't walk in a line.
+    void MoveTo(Player* bot, Position const& pos, float spread = 0.0f);
     void Engage(Player* bot, class Unit* target);
     void LevelUp(Player* bot);
     void PlanZone(Player* bot);
@@ -144,7 +146,8 @@ private:
     uint32 _deadMs = 0;
     uint32 _lootAttemptMs = 0;
     ObjectGuid _lootGuid;
-    Position _moveDest;
+    Position _moveDest;   // Where it was asked to go
+    Position _moveActual; // Where it is actually walking (with spread)
     bool _moving = false;
     std::unordered_set<ObjectGuid> _lootedCorpses;
     std::unordered_set<ObjectGuid> _usedObjects;

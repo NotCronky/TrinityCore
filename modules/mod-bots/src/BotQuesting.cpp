@@ -22,6 +22,7 @@
 #include "Opcodes.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "Random.h"
 #include "RotationBotMgr.h" // mod-rotation-bot: opening fights
 #include "RotationProfiles.h" // mod-rotation-bot: the talent tree with the most points
 #include "SharedDefines.h"
@@ -30,6 +31,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace
@@ -43,6 +45,8 @@ namespace
     constexpr uint32 VENDOR_COOLDOWN_MS = 5 * MINUTE * IN_MILLISECONDS;
     constexpr uint32 REPLAN_MS = 10 * MINUTE * IN_MILLISECONDS; // Picking its zone again
     constexpr uint32 SKIP_RESET_MS = 10 * MINUTE * IN_MILLISECONDS; // Skipped givers and enders get another try
+    constexpr uint32 THINK_JITTER_MS = 500;
+    constexpr float SPREAD = 6.0f; // Yards around a place bots walk to, so they don't walk in a line
     constexpr uint32 TRAVEL_CHECK_MS = 30 * IN_MILLISECONDS;
 
     constexpr float SEARCH_RANGE = 60.0f;      // Live creatures it looks for around itself
@@ -551,12 +555,15 @@ uint32 BotQuester::Think(Player* bot)
         _activity = Activity::Vendor;
     else if (Loot(bot))
         _activity = Activity::Looting;
-    else if (HandIn(bot))
+    else if (HandIn(bot, true))
         _activity = Activity::HandingIn;
     else if (TakeQuests(bot))
         _activity = Activity::TakingQuests;
     else if (Hunt(bot))
         _activity = Activity::Hunting;
+    // Quests to hand in further away (talk-to quests sending it to the next town) once nothing is left here.
+    else if (HandIn(bot, false))
+        _activity = Activity::HandingIn;
     else if (Grind(bot))
         _activity = Activity::Grinding;
     else if (Travel(bot))
@@ -564,7 +571,8 @@ uint32 BotQuester::Think(Player* bot)
     else
         _activity = Activity::Idle;
 
-    return THINK_MS;
+    // A little randomness, so bots that started together don't keep acting in step.
+    return THINK_MS + urand(0, THINK_JITTER_MS);
 }
 
 bool BotQuester::Fight(Player* bot)
@@ -617,15 +625,24 @@ void BotQuester::Engage(Player* bot, Unit* target)
         sRotationBotMgr.Next(bot);
 }
 
-void BotQuester::MoveTo(Player* bot, Position const& pos)
+void BotQuester::MoveTo(Player* bot, Position const& pos, float spread)
 {
     MotionMaster* motion = bot->GetMotionMaster();
     if (_moving && motion->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE && _moveDest.GetExactDist2d(pos) < 3.0f)
         return;
 
-    motion->Clear();
-    motion->MovePoint(0, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), true);
     _moveDest = pos;
+    _moveActual = pos;
+    if (spread > 0.0f)
+    {
+        float angle = frand(0.0f, 2.0f * float(M_PI));
+        float distance = frand(0.0f, spread);
+        _moveActual.Relocate(pos.GetPositionX() + std::cos(angle) * distance, pos.GetPositionY() + std::sin(angle) * distance,
+            pos.GetPositionZ());
+    }
+
+    motion->Clear();
+    motion->MovePoint(0, _moveActual.GetPositionX(), _moveActual.GetPositionY(), _moveActual.GetPositionZ(), true);
     _moving = true;
 }
 
@@ -704,7 +721,7 @@ void BotQuester::OnLootResponse(Player* bot, WorldPacket& packet)
         _lootGuid.Clear();
 }
 
-bool BotQuester::HandIn(Player* bot)
+bool BotQuester::HandIn(Player* bot, bool nearbyOnly)
 {
     for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
     {
@@ -718,7 +735,7 @@ bool BotQuester::HandIn(Player* bot)
             continue;
 
         BotQuestData::Spawn const* spawn = NearestSpawn(bot, *enders, false, &_skippedSpawns);
-        if (!spawn)
+        if (!spawn || (nearbyOnly && bot->GetExactDist2d(spawn->Pos) > NEARBY_GIVER_RANGE))
             continue;
 
         Creature* ender = nullptr;
@@ -732,7 +749,7 @@ bool BotQuester::HandIn(Player* bot)
             if (bot->GetExactDist2d(spawn->Pos) < INTERACTION_DISTANCE)
                 _skippedSpawns.insert(spawn);
             else
-                MoveTo(bot, spawn->Pos);
+                MoveTo(bot, spawn->Pos, bot->GetExactDist2d(spawn->Pos) > SEARCH_RANGE ? SPREAD : 0.0f);
             return true;
         }
 
@@ -920,7 +937,7 @@ bool BotQuester::Hunt(Player* bot)
         // At their spawn and none there yet: grind what is around while they come back, or wait, rather
         // than wander off.
         if (bot->GetExactDist2d(spawn->Pos) > 10.0f)
-            MoveTo(bot, spawn->Pos);
+            MoveTo(bot, spawn->Pos, SPREAD);
         else
             Grind(bot);
         return true;
@@ -951,7 +968,7 @@ bool BotQuester::Travel(Player* bot)
         _travelCheckMs = _travelCheckMs > THINK_MS ? _travelCheckMs - THINK_MS : 0;
         if (_travelling)
         {
-            MoveTo(bot, _travelDest);
+            MoveTo(bot, _travelDest, SPREAD);
             return true;
         }
         return false;
@@ -993,7 +1010,7 @@ bool BotQuester::Travel(Player* bot)
 
     _travelDest = best->Pos;
     _travelling = true;
-    MoveTo(bot, best->Pos);
+    MoveTo(bot, best->Pos, SPREAD);
     return true;
 }
 

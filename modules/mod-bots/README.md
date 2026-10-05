@@ -20,14 +20,17 @@ With `Bots.Questing.Enable = 1`, each of the server's bots, once a second (four 
    use (keeping quest items, consumables, reagents, bags and upgrades), and repairs.
 5. **Loots** corpses it tapped within 30 yards: everything, and the money (like a client: `CMSG_LOOT`,
    `CMSG_AUTOSTORE_LOOT_ITEM`).
-6. **Hands in** finished quests, picking the reward that scores best for its class and role, and wears
-   anything in its bags that is better than what it has on.
+6. **Hands in** finished quests whose quest ender is within 250 yards, picking the reward that scores best
+   for its class and role, and wears anything in its bags that is better than what it has on.
 7. **Takes quests** from the nearest quest giver within 250 yards that has quests it can do.
 8. **Hunts** what its quests need: creatures to kill or loot quest items from, and objects to use or take
    quest items from (crates, plants...), whichever is nearer; when none are there, it walks to where they
    spawn.
-9. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
-10. **Travels** to a quest giver of its planned zone with quests for it, when there is nothing to do nearby.
+9. **Hands in quests further away** once nothing is left to hunt where it is. Talk-to quests ("Report to
+   Goldshire") are complete as soon as they're taken, so before this rule every bot left its starting area
+   straight away.
+10. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
+11. **Travels** to a quest giver of its planned zone with quests for it, when there is nothing to do nearby.
 
 **Zone planner:** at startup, each zone (a quest's QuestSortID) gets a level range from the quests bots can
 do there (from the 20th to the 80th percentile of their levels, widened a little), a count of quests per
@@ -35,6 +38,10 @@ faction, and its quest givers. A bot levels in the nearest zone on its continent
 suits its level and has at least 5 quests for its faction; it plans again on level up, every 10 minutes,
 and when its zone has nothing new and nothing unfinished for it. While it waits at a quest creature's spawn
 for one to come back, it grinds what is around.
+
+Bots don't move in step: walking to a spawn point or a quest hub, each aims for a random spot within 6
+yards of it (talking to an NPC stays exact), and each decides every 1 to 1.5 seconds rather than all
+together.
 
 The server's own bots open their fights with the rotation's best ability (like `.rot next`): out of combat,
 mod-rotation-bot only buffs, so a ranged bot used to stand at its target without starting the fight.
