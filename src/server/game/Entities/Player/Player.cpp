@@ -1248,6 +1248,8 @@ void Player::Update(uint32 p_time)
             m_hostileReferenceCheckTimer -= p_time;
     }
 
+    sScriptMgr->OnPlayerAfterUpdate(this, p_time); // MODULE HOOK
+
     if (IsHasDelayedTeleport())
         TeleportTo(m_teleport_dest, m_teleport_options);
 }

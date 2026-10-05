@@ -583,6 +583,20 @@ bool SpellHistory::HasGlobalCooldown(SpellInfo const* spellInfo) const
     return itr != _globalCooldowns.end() && itr->second > GameTime::GetSystemTime();
 }
 
+// MODULE HOOK: milliseconds left on the global cooldown of the spell's category, 0 when there is none
+uint32 SpellHistory::GetRemainingGlobalCooldown(SpellInfo const* spellInfo) const
+{
+    auto itr = _globalCooldowns.find(spellInfo->StartRecoveryCategory);
+    if (itr == _globalCooldowns.end())
+        return 0;
+
+    Clock::time_point now = GameTime::GetSystemTime();
+    if (itr->second <= now)
+        return 0;
+
+    return uint32(std::chrono::duration_cast<std::chrono::milliseconds>(itr->second - now).count());
+}
+
 void SpellHistory::AddGlobalCooldown(SpellInfo const* spellInfo, uint32 duration)
 {
     _globalCooldowns[spellInfo->StartRecoveryCategory] = GameTime::GetSystemTime() + std::chrono::duration_cast<Clock::duration>(std::chrono::milliseconds(duration));

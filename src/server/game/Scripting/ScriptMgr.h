@@ -721,6 +721,9 @@ class TC_GAME_API PlayerScript : public ScriptObject
         // Called when a player completes a movie
         virtual void OnMovieComplete(Player* player, uint32 movieId);
 
+        // MODULE HOOK: Called at the end of every Player::Update, by the thread updating the player's map
+        virtual void OnAfterUpdate(Player* player, uint32 diff);
+
 };
 
 class TC_GAME_API AccountScript : public ScriptObject
@@ -1036,6 +1039,7 @@ class TC_GAME_API ScriptMgr
         void OnQuestStatusChange(Player* player, uint32 questId);
         void OnMovieComplete(Player* player, uint32 movieId);
         void OnPlayerRepop(Player* player);
+        void OnPlayerAfterUpdate(Player* player, uint32 diff); // MODULE HOOK
 
     public: /* AccountScript */
 
