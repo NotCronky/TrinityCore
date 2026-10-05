@@ -69,7 +69,10 @@ faction = (allianceCount <= hordeCount) ? ALLIANCE : HORDE
 - Within a faction the real mix holds: e.g. Blood Elf paladins stay common on Horde, and Draenei stay the only Alliance shamans.
 - Gender is 50/50 unless the census source gives a split.
 
-### Census data (task: source it)
+### Census data
+
+**Done:** `modules/mod-bots/sql/world/2026_10_05_02_mod_bots_census.sql` holds weights fitted to the WarcraftRealms census of 10 June 2010 (patch 3.3) by iterative proportional fitting over the combinations in `playercreateinfo`; the file explains the method. The notes below are the original plan.
+
 
 Weights go in a DB table rather than code, so they can be tuned without rebuilding:
 
