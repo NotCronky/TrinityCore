@@ -18,6 +18,12 @@ using namespace Trinity::ChatCommands;
 namespace
 {
     bool BotsEnabled = true;
+
+    // The account using the command, or 0 for the server console.
+    uint32 GetOwnerAccountId(ChatHandler* handler)
+    {
+        return handler->GetSession() ? handler->GetSession()->GetAccountId() : 0;
+    }
 }
 
 class BotCommandScript : public CommandScript
@@ -29,10 +35,11 @@ public:
     {
         static ChatCommandTable botTable =
         {
-            { "add",       HandleAdd,       rbac::RBAC_ROLE_GAMEMASTER, Console::Yes },
-            { "remove",    HandleRemove,    rbac::RBAC_ROLE_GAMEMASTER, Console::Yes },
-            { "removeall", HandleRemoveAll, rbac::RBAC_ROLE_GAMEMASTER, Console::Yes },
-            { "list",      HandleList,      rbac::RBAC_ROLE_GAMEMASTER, Console::Yes },
+            // In game, players manage bots of their own account's characters; the console manages every bot.
+            { "add",       HandleAdd,       rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "remove",    HandleRemove,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "removeall", HandleRemoveAll, rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "list",      HandleList,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
         };
 
         static ChatCommandTable commandTable =
@@ -51,29 +58,29 @@ public:
             return true;
         }
 
-        std::string error = sBotMgr.Add(character.GetGUID());
+        std::string error = sBotMgr.Add(character.GetGUID(), GetOwnerAccountId(handler));
         handler->SendSysMessage(error.empty() ? Trinity::StringFormat("Logging in {} as a bot.", character.GetName()) : error);
         return true;
     }
 
     static bool HandleRemove(ChatHandler* handler, PlayerIdentifier character)
     {
-        handler->SendSysMessage(sBotMgr.Remove(character.GetGUID()) ?
+        handler->SendSysMessage(sBotMgr.Remove(character.GetGUID(), GetOwnerAccountId(handler)) ?
             Trinity::StringFormat("{} is logging out.", character.GetName()) :
-            Trinity::StringFormat("{} isn't a bot.", character.GetName()));
+            Trinity::StringFormat("{} isn't one of your bots.", character.GetName()));
         return true;
     }
 
     static bool HandleRemoveAll(ChatHandler* handler)
     {
-        sBotMgr.RemoveAll();
-        handler->SendSysMessage("Every bot is logging out.");
+        sBotMgr.RemoveAll(GetOwnerAccountId(handler));
+        handler->SendSysMessage(handler->GetSession() ? "Your bots are logging out." : "Every bot is logging out.");
         return true;
     }
 
     static bool HandleList(ChatHandler* handler)
     {
-        std::vector<Bot const*> bots = sBotMgr.GetBots();
+        std::vector<Bot const*> bots = sBotMgr.GetBots(GetOwnerAccountId(handler));
         handler->SendSysMessage(Trinity::StringFormat("{} bot{}:", bots.size(), bots.size() == 1 ? "" : "s"));
         for (Bot const* bot : bots)
         {
@@ -108,6 +115,15 @@ public:
         bot->RequestRemoval();
         return false;
     }
+
+    // Runs on the world thread, like every BotMgr change. A player's bots log out with them; a bot
+    // logging out (its session is a bot session) must not take its owner's other bots with it.
+    void OnLogout(Player* player) override
+    {
+        WorldSession* session = player->GetSession();
+        if (!session->IsBot())
+            sBotMgr.RemoveAll(session->GetAccountId());
+    }
 };
 
 class BotWorldScript : public WorldScript
@@ -119,7 +135,7 @@ public:
     {
         BotsEnabled = sConfigMgr->GetBoolDefault("Bots.Enable", true);
         if (!BotsEnabled)
-            sBotMgr.RemoveAll();
+            sBotMgr.RemoveAll(0);
     }
 
     // After the maps have updated, so bots can log in and out safely.

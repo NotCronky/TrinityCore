@@ -35,7 +35,8 @@ namespace
     }
 }
 
-Bot::Bot(ObjectGuid guid, uint32 accountId, std::string name) : _guid(guid), _accountId(accountId), _name(std::move(name))
+Bot::Bot(ObjectGuid guid, uint32 accountId, std::string name, uint32 ownerAccountId) : _guid(guid),
+    _accountId(accountId), _name(std::move(name)), _ownerAccountId(ownerAccountId)
 {
 }
 
@@ -176,11 +177,14 @@ BotMgr& BotMgr::Instance()
     return instance;
 }
 
-std::string BotMgr::Add(ObjectGuid guid)
+std::string BotMgr::Add(ObjectGuid guid, uint32 ownerAccountId)
 {
     CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(guid);
     if (!character)
         return "There is no such character.";
+
+    if (ownerAccountId && character->AccountId != ownerAccountId)
+        return "You can only log in characters from your own account as bots.";
 
     if (_bots.count(guid))
         return character->Name + " is already a bot.";
@@ -192,7 +196,7 @@ std::string BotMgr::Add(ObjectGuid guid)
     if (!AccountMgr::GetName(character->AccountId, accountName))
         return "The character's account doesn't exist.";
 
-    auto bot = std::make_unique<Bot>(guid, character->AccountId, character->Name);
+    auto bot = std::make_unique<Bot>(guid, character->AccountId, character->Name, ownerAccountId);
     if (!bot->Start(std::move(accountName)))
         return "Couldn't start a session for " + character->Name + ".";
 
@@ -201,20 +205,21 @@ std::string BotMgr::Add(ObjectGuid guid)
     return {};
 }
 
-bool BotMgr::Remove(ObjectGuid guid)
+bool BotMgr::Remove(ObjectGuid guid, uint32 ownerAccountId)
 {
     Bot* bot = Find(guid);
-    if (!bot)
+    if (!bot || (ownerAccountId && bot->GetOwnerAccountId() != ownerAccountId))
         return false;
 
     bot->RequestRemoval();
     return true;
 }
 
-void BotMgr::RemoveAll()
+void BotMgr::RemoveAll(uint32 ownerAccountId)
 {
     for (auto& [guid, bot] : _bots)
-        bot->RequestRemoval();
+        if (!ownerAccountId || bot->GetOwnerAccountId() == ownerAccountId)
+            bot->RequestRemoval();
 }
 
 Bot* BotMgr::Find(ObjectGuid guid) const
@@ -223,12 +228,12 @@ Bot* BotMgr::Find(ObjectGuid guid) const
     return itr != _bots.end() ? itr->second.get() : nullptr;
 }
 
-std::vector<Bot const*> BotMgr::GetBots() const
+std::vector<Bot const*> BotMgr::GetBots(uint32 ownerAccountId) const
 {
     std::vector<Bot const*> bots;
-    bots.reserve(_bots.size());
     for (auto const& [guid, bot] : _bots)
-        bots.push_back(bot.get());
+        if (!ownerAccountId || bot->GetOwnerAccountId() == ownerAccountId)
+            bots.push_back(bot.get());
 
     return bots;
 }

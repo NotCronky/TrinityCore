@@ -3,19 +3,23 @@
 Player bots: real characters logged into the world without a game client. The full design is in
 [doc/BOT_SYSTEM_PLAN.md](../../doc/BOT_SYSTEM_PLAN.md).
 
-Status: **phase 0**. A game master can log any character in as a bot and out again. Bots stand where
+Status: **phase 0**. Players can log their own alts in as bots and out again. Bots stand where
 the character logged out and do nothing else yet: no population, AI, movement or combat.
 
 ## Commands
-
-Game masters only, also from the server console.
 
 | Command | What it does |
 |---|---|
 | `.bot add <character>` | Logs the character in as a bot. It must not be online. |
 | `.bot remove <character>` | Logs the bot out and saves it. |
-| `.bot removeall` | Logs every bot out. |
-| `.bot list` | Every bot and whether it is logging in, in the world or logging out. |
+| `.bot removeall` | Logs out every bot you added. |
+| `.bot list` | The bots you added and whether each is logging in, in the world or logging out. |
+
+- **In game, everyone can use them, but only for characters on their own account.** Nobody can log in,
+  remove or see another account's characters as bots, game masters included.
+- **Your bots log out when you do**, when you log out of the game or switch characters.
+- **The server console** can add and remove any character's bot, and lists every bot. Bots added there
+  belong to no account, so nobody logging out takes them with them.
 
 If a player logs into a character that is online as a bot, the login is refused ("character already
 logged in"), the bot logs out, and the player can log in a moment later.

@@ -30,11 +30,13 @@ public:
         InWorld,
     };
 
-    Bot(ObjectGuid guid, uint32 accountId, std::string name);
+    // ownerAccountId is the account that added the bot, or 0 for the server console.
+    Bot(ObjectGuid guid, uint32 accountId, std::string name, uint32 ownerAccountId);
     ~Bot();
 
     ObjectGuid GetGuid() const { return _guid; }
     std::string const& GetName() const { return _name; }
+    uint32 GetOwnerAccountId() const { return _ownerAccountId; }
     State GetState() const { return _state; }
     WorldSession* GetSession() const { return _session.get(); }
 
@@ -60,6 +62,7 @@ private:
     ObjectGuid _guid;
     uint32 _accountId;
     std::string _name;
+    uint32 _ownerAccountId;
     State _state = State::RequestingCharacters;
     std::unique_ptr<WorldSession> _session;
     uint32 _loginTimeMs = 0;
@@ -75,14 +78,19 @@ class BotMgr
 public:
     static BotMgr& Instance();
 
+    // ownerAccountId: the account asking, which may only use its own characters; 0 is the server
+    // console, which may use any character and any bot.
+
     // Logs a character in as a bot. Returns an error message, or an empty string on success.
-    std::string Add(ObjectGuid guid);
-    // Asks a bot to log out; it is removed on the next world update.
-    bool Remove(ObjectGuid guid);
-    void RemoveAll();
+    std::string Add(ObjectGuid guid, uint32 ownerAccountId);
+    // Asks a bot to log out; it is removed on the next world update. False when the account may not.
+    bool Remove(ObjectGuid guid, uint32 ownerAccountId);
+    // Logs out the bots the account added, or every bot for the console.
+    void RemoveAll(uint32 ownerAccountId);
 
     Bot* Find(ObjectGuid guid) const;
-    std::vector<Bot const*> GetBots() const;
+    // The bots the account added, or every bot for the console.
+    std::vector<Bot const*> GetBots(uint32 ownerAccountId) const;
 
     // World thread, while maps are idle.
     void Update(uint32 diff);
