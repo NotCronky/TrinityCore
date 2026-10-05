@@ -15,6 +15,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "RotationBotMgr.h" // mod-rotation-bot: opening fights
 #include "RotationProfiles.h" // mod-rotation-bot: the talent tree with the most points
 #include "StringFormat.h"
 #include "Trainer.h"
@@ -372,6 +373,10 @@ namespace BotCompanion
                 else
                     motion->MoveChase(target, RANGED_DISTANCE);
             }
+
+            // Sent to pull (.bot pull): the rotation never starts a fight on its own, so open it like .rot next.
+            if (!bot->IsInCombat())
+                sRotationBotMgr.Next(bot);
             return;
         }
 

@@ -45,6 +45,7 @@ public:
             { "removeall", HandleRemoveAll, rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "list",      HandleList,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "population", HandlePopulation, rbac::RBAC_ROLE_ADMINISTRATOR, Console::Yes },
+            { "info",      HandleInfo,      rbac::RBAC_ROLE_ADMINISTRATOR, Console::Yes },
             { "gear",      HandleGear,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "stay",      HandleStay,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "follow",    HandleFollow,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
@@ -182,6 +183,22 @@ public:
         for (Bot* bot : sBotMgr.FindBots(GetOwnerAccountId(handler), who))
             bot->SetStaying(false);
         handler->SendSysMessage("Following.");
+        return true;
+    }
+
+    // .bot info <name>: what one of the server's questing bots is doing.
+    static bool HandleInfo(ChatHandler* handler, PlayerIdentifier character)
+    {
+        Bot* bot = sBotMgr.Find(character.GetGUID());
+        Player* player = bot && bot->GetSession() ? bot->GetSession()->GetPlayer() : nullptr;
+        if (!player || !bot->GetQuester())
+        {
+            handler->SendSysMessage(Trinity::StringFormat("{} isn't one of the server's questing bots in the world.", character.GetName()));
+            return true;
+        }
+
+        for (std::string const& line : bot->GetQuester()->Describe(player))
+            handler->SendSysMessage(line);
         return true;
     }
 

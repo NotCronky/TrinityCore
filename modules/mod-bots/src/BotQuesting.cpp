@@ -9,9 +9,9 @@
 
 #include "CellImpl.h"
 #include "Creature.h"
+#include "DatabaseEnv.h"
 #include "DBCStores.h"
 #include "GameObject.h"
-#include "DatabaseEnv.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Item.h"
@@ -22,7 +22,10 @@
 #include "Opcodes.h"
 #include "Player.h"
 #include "QuestDef.h"
+#include "RotationBotMgr.h" // mod-rotation-bot: opening fights
 #include "RotationProfiles.h" // mod-rotation-bot: the talent tree with the most points
+#include "SharedDefines.h"
+#include "StringFormat.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
@@ -38,6 +41,7 @@ namespace
     constexpr float RECLAIM_DISTANCE = 20.0f;                      // The server allows up to 39 yards
     constexpr uint32 VENDOR_FREE_SLOTS = 4;                         // Fewer free bag slots: off to sell
     constexpr uint32 VENDOR_COOLDOWN_MS = 5 * MINUTE * IN_MILLISECONDS;
+    constexpr uint32 REPLAN_MS = 10 * MINUTE * IN_MILLISECONDS; // Picking its zone again
     constexpr uint32 SKIP_RESET_MS = 10 * MINUTE * IN_MILLISECONDS; // Skipped givers and enders get another try
     constexpr uint32 TRAVEL_CHECK_MS = 30 * IN_MILLISECONDS;
 
@@ -248,8 +252,117 @@ void BotQuestData::Load()
             for (Spawn const& spawn : *spawns)
                 _givers[spawn.MapId].push_back(spawn);
 
+    LoadZones();
+
     TC_LOG_INFO("module", "mod-bots: questing data: {} creature entries with spawns, {} quest givers, {} quest items from "
-        "creatures and {} from objects.", _spawns.size(), _questsOf.size(), _droppers.size(), _objectSources.size());
+        "creatures and {} from objects, {} questing zones.", _spawns.size(), _questsOf.size(), _droppers.size(),
+        _objectSources.size(), _zones.size());
+}
+
+void BotQuestData::LoadZones()
+{
+    // Per zone (a quest's QuestSortID when positive): the levels of the quests bots can do there, how many
+    // each faction can do, and the spawns of their givers on the zone's main map.
+    struct Collected
+    {
+        std::vector<int32> Levels;
+        uint32 Quests[2] = { 0, 0 };
+        std::unordered_map<uint32, std::vector<Spawn const*>> GiversByMap;
+    };
+    std::unordered_map<uint32, Collected> collected;
+
+    for (auto const& [questId, starterEntries] : _starters)
+    {
+        Quest const* quest = sObjectMgr->GetQuestTemplate(questId);
+        if (!quest || quest->GetZoneOrSort() <= 0 || !IsSupported(quest))
+            continue;
+
+        Collected& zone = collected[uint32(quest->GetZoneOrSort())];
+        zone.Levels.push_back(quest->GetQuestLevel() > 0 ? quest->GetQuestLevel() : int32(quest->GetMinLevel()));
+
+        uint32 races = quest->GetAllowableRaces();
+        if (!races || (races & RACEMASK_ALLIANCE))
+            ++zone.Quests[0];
+        if (!races || (races & RACEMASK_HORDE))
+            ++zone.Quests[1];
+
+        for (uint32 entry : starterEntries)
+            if (std::vector<Spawn> const* spawns = GetSpawns(entry))
+                for (Spawn const& spawn : *spawns)
+                    zone.GiversByMap[spawn.MapId].push_back(&spawn);
+    }
+
+    for (auto& [zoneId, data] : collected)
+    {
+        if (data.Levels.size() < 5 || data.GiversByMap.empty())
+            continue;
+
+        // The map with most of the zone's givers (a few quests are given elsewhere).
+        auto main = std::max_element(data.GiversByMap.begin(), data.GiversByMap.end(),
+            [](auto const& a, auto const& b) { return a.second.size() < b.second.size(); });
+
+        std::sort(data.Levels.begin(), data.Levels.end());
+        int32 low = data.Levels[data.Levels.size() / 5];
+        int32 high = data.Levels[data.Levels.size() * 4 / 5];
+
+        Zone zone;
+        zone.Id = zoneId;
+        zone.MapId = main->first;
+        zone.MinLevel = uint8(std::max(1, low - 2));
+        zone.MaxLevel = uint8(std::max(int32(zone.MinLevel), high + 1));
+        zone.Quests[0] = data.Quests[0];
+        zone.Quests[1] = data.Quests[1];
+        zone.Givers = std::move(main->second);
+
+        float x = 0, y = 0, z = 0;
+        for (Spawn const* giver : zone.Givers)
+        {
+            x += giver->Pos.GetPositionX();
+            y += giver->Pos.GetPositionY();
+            z += giver->Pos.GetPositionZ();
+        }
+        float count = float(zone.Givers.size());
+        zone.Center.Relocate(x / count, y / count, z / count);
+
+        _zones[zoneId] = std::move(zone);
+    }
+}
+
+BotQuestData::Zone const* BotQuestData::PickZone(Player* bot, std::unordered_set<uint32> const& exhausted) const
+{
+    constexpr uint32 MIN_QUESTS = 5;
+    constexpr float MAX_ZONE_DISTANCE = 1500.0f;
+    uint8 faction = bot->GetTeam() == ALLIANCE ? 0 : 1;
+
+    Zone const* best = nullptr;
+    float bestDist = std::numeric_limits<float>::max();
+    for (auto const& [zoneId, zone] : _zones)
+    {
+        if (zone.MapId != bot->GetMapId() || exhausted.count(zoneId) || zone.Quests[faction] < MIN_QUESTS ||
+            bot->GetLevel() < zone.MinLevel || bot->GetLevel() > zone.MaxLevel)
+            continue;
+
+        // Within walking distance: further zones are usually across mountains or water it can't path over.
+        float dist = bot->GetExactDist2d(zone.Center);
+        if (dist < bestDist && dist < MAX_ZONE_DISTANCE)
+        {
+            best = &zone;
+            bestDist = dist;
+        }
+    }
+    return best;
+}
+
+BotQuestData::Zone const* BotQuestData::GetZone(uint32 zoneId) const
+{
+    auto itr = _zones.find(zoneId);
+    return itr != _zones.end() ? &itr->second : nullptr;
+}
+
+std::string BotQuestData::GetZoneName(uint32 zoneId)
+{
+    AreaTableEntry const* area = sAreaTableStore.LookupEntry(zoneId);
+    return area ? area->AreaName[LOCALE_enUS] : std::to_string(zoneId);
 }
 
 std::vector<BotQuestData::Spawn> const* BotQuestData::GetSpawns(uint32 entry) const
@@ -344,6 +457,53 @@ char const* BotQuester::GetActivityName(Activity activity)
     }
 }
 
+std::vector<std::string> BotQuester::Describe(Player* bot) const
+{
+    std::vector<std::string> lines;
+    lines.push_back(Trinity::StringFormat("{}: level {}, {}, map {} at {:.0f} {:.0f} {:.0f}.", bot->GetName(), bot->GetLevel(),
+        GetActivityName(_activity), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()));
+
+    BotQuestData::Zone const* zone = sBotQuestData.GetZone(_zoneId);
+    lines.push_back(zone ? Trinity::StringFormat("Zone: {} (levels {}-{}), {} zones used up.", BotQuestData::GetZoneName(zone->Id),
+        zone->MinLevel, zone->MaxLevel, _exhaustedZones.size()) : std::string("Zone: none planned."));
+
+    if (Unit* victim = bot->GetVictim())
+        lines.push_back(Trinity::StringFormat("Target: {} level {}, {:.0f}% health, {:.1f} yards, {}{}{}; motion {}, {} attackers.",
+            victim->GetName(), victim->GetLevel(), victim->GetHealthPct(), bot->GetDistance(victim),
+            bot->IsWithinMeleeRange(victim) ? "in melee" : "not in melee", victim->ToCreature() && victim->ToCreature()->IsInEvadeMode() ? ", evading" : "",
+            victim->GetVictim() == bot ? ", fighting the bot" : (victim->GetVictim() ? ", fighting someone else" : ""),
+            uint32(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()), bot->getAttackers().size()));
+    else if (!bot->getAttackers().empty())
+        lines.push_back(Trinity::StringFormat("No target, {} attackers; first: {} {:.1f} yards away.", bot->getAttackers().size(),
+            (*bot->getAttackers().begin())->GetName(), bot->GetDistance(*bot->getAttackers().begin())));
+
+    if (_moving)
+        lines.push_back(Trinity::StringFormat("Moving to {:.0f} {:.0f} {:.0f}, {:.0f} yards away; travel target {}.", _moveDest.GetPositionX(),
+            _moveDest.GetPositionY(), _moveDest.GetPositionZ(), bot->GetExactDist2d(_moveDest), _travelling ? "set" : "none"));
+
+    for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+    {
+        uint32 questId = bot->GetQuestSlotQuestId(slot);
+        Quest const* quest = questId ? sObjectMgr->GetQuestTemplate(questId) : nullptr;
+        if (!quest)
+            continue;
+
+        std::string progress;
+        for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i)
+            if (quest->RequiredNpcOrGo[i])
+                progress += Trinity::StringFormat(" {}/{}", bot->GetReqKillOrCastCurrentCount(questId, quest->RequiredNpcOrGo[i]),
+                    quest->RequiredNpcOrGoCount[i]);
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
+            if (quest->RequiredItemId[i])
+                progress += Trinity::StringFormat(" {}/{} items", bot->GetItemCount(quest->RequiredItemId[i]), quest->RequiredItemCount[i]);
+
+        lines.push_back(Trinity::StringFormat("  [{}] {}{}{}", questId, quest->GetLogTitle(),
+            bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE ? " (complete)" : "", progress));
+    }
+
+    return lines;
+}
+
 uint32 BotQuester::Think(Player* bot)
 {
     if (!bot->IsInWorld() || bot->IsBeingTeleported() || bot->IsInFlight())
@@ -367,7 +527,17 @@ uint32 BotQuester::Think(Player* bot)
     }
 
     if (bot->GetLevel() != _lastLevel)
+    {
         LevelUp(bot);
+        _replanMs = 0;
+    }
+
+    _replanMs = _replanMs > THINK_MS ? _replanMs - THINK_MS : 0;
+    if (!_replanMs)
+    {
+        _replanMs = REPLAN_MS;
+        PlanZone(bot);
+    }
 
     if (Fight(bot))
     {
@@ -440,6 +610,11 @@ void BotQuester::Engage(Player* bot, Unit* target)
             motion->MoveChase(target, RANGED_DISTANCE);
     }
     _moving = false;
+
+    // The rotation never starts a fight on its own (out of combat it only buffs), so open it with the best
+    // ability, like a player pressing .rot next; melee auto-attack opens it too once in range.
+    if (!bot->IsInCombat())
+        sRotationBotMgr.Next(bot);
 }
 
 void BotQuester::MoveTo(Player* bot, Position const& pos)
@@ -740,9 +915,14 @@ bool BotQuester::Hunt(Player* bot)
     if (objectSpawn && (!spawn || bot->GetExactDist2d(objectSpawn->Pos) < bot->GetExactDist2d(spawn->Pos)))
         spawn = objectSpawn;
 
-    if (spawn && bot->GetExactDist2d(spawn->Pos) > 10.0f)
+    if (spawn)
     {
-        MoveTo(bot, spawn->Pos);
+        // At their spawn and none there yet: grind what is around while they come back, or wait, rather
+        // than wander off.
+        if (bot->GetExactDist2d(spawn->Pos) > 10.0f)
+            MoveTo(bot, spawn->Pos);
+        else
+            Grind(bot);
         return true;
     }
 
@@ -764,8 +944,8 @@ bool BotQuester::Grind(Player* bot)
 
 bool BotQuester::Travel(Player* bot)
 {
-    // Nothing to do here: the nearest giver on the map with a quest for it, however far. Looking through
-    // every giver on the map is slow, so the destination is kept for a while.
+    // Nothing to do here: to a quest giver of its zone with quests for it, or the zone's middle when none
+    // is near enough to tell. Looking through givers is slow, so the destination is kept for a while.
     if (_travelCheckMs > 0)
     {
         _travelCheckMs = _travelCheckMs > THINK_MS ? _travelCheckMs - THINK_MS : 0;
@@ -779,29 +959,60 @@ bool BotQuester::Travel(Player* bot)
 
     _travelCheckMs = TRAVEL_CHECK_MS;
     _travelling = false;
-    std::vector<BotQuestData::Spawn> const* givers = sBotQuestData.GetGivers(bot->GetMapId());
-    if (!givers)
+
+    BotQuestData::Zone const* zone = sBotQuestData.GetZone(_zoneId);
+    if (!zone)
         return false;
 
-    BotQuestData::Spawn const* best = nullptr;
+    Spawn const* best = nullptr;
     float bestDist = std::numeric_limits<float>::max();
-    for (BotQuestData::Spawn const& spawn : *givers)
+    for (Spawn const* spawn : zone->Givers)
     {
-        float dist = bot->GetExactDist2d(spawn.Pos);
-        if (dist < bestDist && !_skippedSpawns.count(&spawn) && !AvailableQuests(bot, spawn.Entry).empty())
+        float dist = bot->GetExactDist2d(spawn->Pos);
+        if (dist < bestDist && !_skippedSpawns.count(spawn) && !AvailableQuests(bot, spawn->Entry).empty())
         {
-            best = &spawn;
+            best = spawn;
             bestDist = dist;
         }
     }
 
     if (!best)
+    {
+        // Nothing new for it in this zone, and nothing left to finish: another one.
+        bool unfinished = false;
+        for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE && !unfinished; ++slot)
+            unfinished = bot->GetQuestSlotQuestId(slot) != 0;
+
+        if (!unfinished)
+        {
+            _exhaustedZones.insert(_zoneId);
+            _replanMs = 0;
+        }
         return false;
+    }
 
     _travelDest = best->Pos;
     _travelling = true;
     MoveTo(bot, best->Pos);
     return true;
+}
+
+void BotQuester::PlanZone(Player* bot)
+{
+    BotQuestData::Zone const* zone = sBotQuestData.PickZone(bot, _exhaustedZones);
+    if (!zone && !_exhaustedZones.empty())
+    {
+        // Every zone for its level was used up: they may have new quests for it by now.
+        _exhaustedZones.clear();
+        zone = sBotQuestData.PickZone(bot, _exhaustedZones);
+    }
+
+    uint32 zoneId = zone ? zone->Id : 0;
+    if (zoneId != _zoneId)
+    {
+        _zoneId = zoneId;
+        _travelCheckMs = 0; // Head there now
+    }
 }
 
 bool BotQuester::VisitVendor(Player* bot)

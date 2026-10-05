@@ -27,8 +27,17 @@ With `Bots.Questing.Enable = 1`, each of the server's bots, once a second (four 
    quest items from (crates, plants...), whichever is nearer; when none are there, it walks to where they
    spawn.
 9. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
-10. **Travels** to the nearest quest giver on its continent with quests for it, when there is nothing to
-    do nearby.
+10. **Travels** to a quest giver of its planned zone with quests for it, when there is nothing to do nearby.
+
+**Zone planner:** at startup, each zone (a quest's QuestSortID) gets a level range from the quests bots can
+do there (from the 20th to the 80th percentile of their levels, widened a little), a count of quests per
+faction, and its quest givers. A bot levels in the nearest zone on its continent, within 1500 yards, that
+suits its level and has at least 5 quests for its faction; it plans again on level up, every 10 minutes,
+and when its zone has nothing new and nothing unfinished for it. While it waits at a quest creature's spawn
+for one to come back, it grinds what is around.
+
+The server's own bots open their fights with the rotation's best ability (like `.rot next`): out of combat,
+mod-rotation-bot only buffs, so a ranged bot used to stand at its target without starting the fight.
 
 A quest giver or ender it finds nobody at (event or phased NPCs listed in the database), or gets no quest
 from, is skipped for 10 minutes.
@@ -109,7 +118,8 @@ The server creates `Bots.Population.Count` bot characters (1000 by default) once
 
 `.bot population` (administrators and the console) shows the target, created and online bots per faction,
 the average and worst world tick over the last minute, and how many questing bots are doing what
-(fighting, hunting, travelling, dead...).
+(fighting, hunting, travelling, dead...) and the busiest planned zones. `.bot info <name>` shows one bot:
+its activity, zone, position, destination, fight target and quest log.
 
 ### Load test (2026-10-05, one map thread, bots idle)
 

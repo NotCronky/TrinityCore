@@ -478,6 +478,20 @@ std::vector<std::string> BotPopulation::Describe() const
             if (Bot* bot = sBotMgr.Find(guid); bot && bot->GetQuester())
                 ++activities[size_t(bot->GetQuester()->GetActivity())];
 
+    // Where they are levelling: the busiest planned zones.
+    std::unordered_map<uint32, uint32> zones;
+    for (uint8 faction = 0; faction < FACTION_COUNT; ++faction)
+        for (ObjectGuid guid : _bots[faction])
+            if (Bot* bot = sBotMgr.Find(guid); bot && bot->GetQuester() && bot->GetQuester()->GetZoneId())
+                ++zones[bot->GetQuester()->GetZoneId()];
+
+    std::vector<std::pair<uint32, uint32>> busiest(zones.begin(), zones.end());
+    std::sort(busiest.begin(), busiest.end(), [](auto const& a, auto const& b) { return a.second > b.second; });
+    std::string zoneText;
+    for (std::size_t i = 0; i < busiest.size() && i < 8; ++i)
+        zoneText += Trinity::StringFormat("{}{} {}", zoneText.empty() ? "" : ", ", BotQuestData::GetZoneName(busiest[i].first),
+            busiest[i].second);
+
     std::string doing;
     for (size_t i = 0; i < activities.size(); ++i)
         if (activities[i])
@@ -498,5 +512,7 @@ std::vector<std::string> BotPopulation::Describe() const
         averageTick, maxTick, _tickTimes.size()));
     if (!doing.empty())
         lines.push_back("Doing: " + doing + ".");
+    if (!zoneText.empty())
+        lines.push_back(Trinity::StringFormat("Levelling in ({} zones): {}.", busiest.size(), zoneText));
     return lines;
 }
