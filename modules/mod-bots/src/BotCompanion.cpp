@@ -350,6 +350,11 @@ namespace BotCompanion
         Unit* target = role == Role::Tank ? PickTankTarget(bot, owner, pull) : PickTarget(bot, owner);
         if (pull && !target)
             target = pull;
+
+        // Seated (eating or drinking): up as soon as there is a fight or the owner walks off. The rotation
+        // doesn't cast while seated, so a healer left sitting would never heal.
+        if (bot->IsSitState() && (target || bot->IsInCombat() || owner->IsInCombat() || bot->GetDistance(owner) >= EAT_DISTANCE))
+            bot->SetStandState(UNIT_STAND_STATE_STAND);
         if (target && role != Role::Healer)
         {
             // mod-rotation-bot casts at the selected target.
