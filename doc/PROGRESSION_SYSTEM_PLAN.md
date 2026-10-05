@@ -128,11 +128,12 @@ Optional (`Progression.AltsStartAtAccountPatch`): new characters start at the hi
 
 ### Storage
 
-- Table `character_progression(guid, patch, changed_at)` is the source of truth, cached in memory on login.
-- The module **also** rewards hidden quests (`progression_patch.quest_id`) up to the character's patch, borrowing IPP's trick. Existing TrinityCore tables can then gate content with no code:
+- **Implemented in phase 1:** the character's patch *is* one completed hidden quest (`progression_patch.quest_id`, IDs 90001–90022, flag `QUEST_FLAGS_TRACKING` so the client never shows it), borrowing IPP's trick. It loads and saves with the character, so there is no separate table to keep in sync. Only the current patch's quest is kept, because TrinityCore counts every completed quest toward "complete N quests" achievements; one hidden quest adds one to the count instead of up to 22.
+- "Reached patch *N* or later" is therefore a set of quests (*N* … 22): conditions combine them with `ElseGroup` (OR), and a generator script builds those rows from `progression_content`. Existing TrinityCore tables can then gate content with no code:
   - `access_requirement.quest_done_A/H` blocks entry to a dungeon or raid.
   - `conditions` (TrinityCore 3.3.5 source types 1–3 loot, 14–15 gossip, 19 quest available, 23 vendor) filters loot, gossip (e.g. the dual-spec option), quest availability and vendor items.
-- Content with a `max_patch` needs a "has **not** reached patch *N*" check, which is done with a negated `conditions` row on the hidden quest.
+- Content with a `max_patch` needs "not in patch *N* or later": negated `conditions` rows on each of those quests, combined with AND.
+- `access_requirement` takes a single quest, so it can't express a patch range; instance entry uses the map-entry hook below instead.
 
 ## Enforcement points
 

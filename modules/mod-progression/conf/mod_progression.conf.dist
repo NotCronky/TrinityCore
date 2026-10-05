@@ -1,0 +1,58 @@
+#
+# mod-progression configuration
+#
+# Installed to worldserver.conf.d/, which the worldserver loads after worldserver.conf.
+# Change settings in mod_progression.conf; mod_progression.conf.dist is replaced on every install.
+# Patches are given by version, as listed by ".patch list": 1.1 ... 1.12, 2.0 ... 2.4, 3.0 ... 3.3.5.
+#
+
+# Settings must be in the [worldserver] section, like worldserver.conf.
+[worldserver]
+
+###################################################################################################
+# mod-progression
+#
+#    Progression.Enable
+#        Description: Each character plays in a patch of its own, from 1.1 to 3.3.5, and moves to the
+#                     next one when the player chooses with ".patch next".
+#        Default:     1 - Enabled
+#                     0 - Disabled (characters keep their patch, but nothing is limited)
+#
+
+Progression.Enable = 1
+
+#
+#    Progression.ServerCap
+#        Description: The highest patch anyone can be in. Characters set to a later patch play as if
+#                     they were in this one. ".patch servercap" changes it until the next restart.
+#        Default:     "3.3.5" - No cap
+#
+
+Progression.ServerCap = "3.3.5"
+
+#
+#    Progression.StartPatch
+#        Description: Patch for new characters. Blood Elves and Draenei start in 2.0 at the earliest
+#                     and Death Knights in 3.0, because they didn't exist before.
+#        Default:     "1.1"
+#
+
+Progression.StartPatch = "1.1"
+
+#
+#    Progression.ExistingCharacterPatch
+#        Description: Patch for characters created before the module was installed, set the first
+#                     time they log in.
+#        Default:     "3.3.5" - Unchanged: nothing is limited for them
+#
+
+Progression.ExistingCharacterPatch = "3.3.5"
+
+#
+#    Progression.RequireLevelCapToAdvance
+#        Description: Require a character to reach its patch's level cap before ".patch next".
+#        Default:     0 - Players decide when they are done with a patch
+#                     1 - Required
+#
+
+Progression.RequireLevelCapToAdvance = 0
