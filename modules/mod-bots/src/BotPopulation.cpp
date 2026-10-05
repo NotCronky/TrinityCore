@@ -77,7 +77,7 @@ BotPopulation& BotPopulation::Instance()
 
 void BotPopulation::LoadConfig()
 {
-    _count = uint32(std::max(0, sConfigMgr->GetIntDefault("Bots.Population.Count", 1000)));
+    _count = uint32(std::max(0, sConfigMgr->GetIntDefault("Bots.Population.Count", 0)));
     _loginsPerSecond = uint32(std::max(1, sConfigMgr->GetIntDefault("Bots.Population.LoginsPerSecond", 10)));
     _charactersPerAccount = uint32(std::clamp(sConfigMgr->GetIntDefault("Bots.Population.CharactersPerAccount", 10), 1, 10));
 }

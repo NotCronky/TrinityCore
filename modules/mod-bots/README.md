@@ -3,8 +3,12 @@
 Player bots: real characters logged into the world without a game client. The full design is in
 [doc/BOT_SYSTEM_PLAN.md](../../doc/BOT_SYSTEM_PLAN.md).
 
-Status: **phase 3, step 1**. The server creates and keeps its own bot population online and they quest on
-their own around where they are; players' alts come along as companions that follow and fight.
+Status: **companions**. Players' alts come along as companions that follow and fight.
+
+The server's own bot population and its questing are **off by default for now** (`Bots.Population.Count = 0`,
+`Bots.Questing.Enable = 0`) while work goes into companions and mod-progression. The questing is to be
+redesigned so bots behave more like players (doc/BOT_QUESTING_PLAN.md). The code still works and is
+described below; turn both settings on to use it.
 
 ## Questing (the server's own bots)
 

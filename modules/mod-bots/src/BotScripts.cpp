@@ -280,7 +280,7 @@ public:
     {
         BotsEnabled = sConfigMgr->GetBoolDefault("Bots.Enable", true);
         sBotPopulation.LoadConfig();
-        sBotMgr.SetQuestingEnabled(sConfigMgr->GetBoolDefault("Bots.Questing.Enable", true));
+        sBotMgr.SetQuestingEnabled(sConfigMgr->GetBoolDefault("Bots.Questing.Enable", false));
         if (!BotsEnabled)
             sBotMgr.RemoveAll(0);
     }

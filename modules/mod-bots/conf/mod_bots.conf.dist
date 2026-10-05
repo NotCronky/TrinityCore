@@ -25,11 +25,12 @@ Bots.Enable = 1
 #                     half Horde (an odd number is rounded down). Race and class follow the WotLK
 #                     census (bot_census), names come from bot_names. Characters are created once
 #                     and kept; lowering the number logs the extra bots out.
-#        Default:     1000
-#                     0    - No bot population (players can still log in their own alts as bots)
+#                     Off for now, while work is on companions and progression.
+#        Default:     0    - No bot population (players can still log in their own alts as bots)
+#                     1000 - The population the questing was tested with
 #
 
-Bots.Population.Count = 1000
+Bots.Population.Count = 0
 
 #
 #    Bots.Population.LoginsPerSecond
@@ -54,8 +55,9 @@ Bots.Population.CharactersPerAccount = 10
 #        Description: The server's own bots quest on their own: they take quests near them, kill and
 #                     loot what the quests need, hand them in, equip better rewards, learn spells and
 #                     spend talents as they level, and grind when there is nothing else to do.
-#        Default:     1 - Enabled
-#                     0 - Disabled (they stand where they logged in)
+#                     Off for now: it is being redesigned (doc/BOT_QUESTING_PLAN.md).
+#        Default:     0 - Disabled (they stand where they logged in)
+#                     1 - Enabled
 #
 
-Bots.Questing.Enable = 1
+Bots.Questing.Enable = 0
