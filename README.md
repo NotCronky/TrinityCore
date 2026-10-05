@@ -27,7 +27,7 @@ git merge upstream/3.3.5
 | Feature | Status |
 |---|---|
 | **Module system.** Features live in `modules/<name>/` with their own config and database updates, so the core stays close to TrinityCore. See [modules/README.md](modules/README.md). | Done |
-| **mod-rotation-bot.** A server-side combat rotation for your own character, every class and spec from level 1 to 80, PvE and PvP, with editable YAML profiles. Ported from the AzerothCore module. See [its README](modules/mod-rotation-bot/README.md). | Done. Warrior tested in game, other classes not yet |
+| **mod-rotation-bot.** A server-side combat rotation for your own character, every class and spec from level 1 to 80, PvE and PvP, with editable YAML profiles. Written for AzerothCore by NotCronky and ported here. See [its README](modules/mod-rotation-bot/README.md). | Done. Warrior tested in game, other classes not yet |
 | **Progression.** Each character plays in a patch of its own, from Vanilla 1.1 to WotLK 3.3.5, and moves to the next one when the player chooses. See [the plan](doc/PROGRESSION_SYSTEM_PLAN.md). | Planned |
 | **Player bots.** At least 1000 bots that quest, run dungeons, battlegrounds, arenas and raids, trade on the auction house and follow your character's patch. See [the plan](doc/BOT_SYSTEM_PLAN.md). | Planned |
 
@@ -51,7 +51,7 @@ Module settings are installed to `server/etc/worldserver.conf.d/`.
 
 - [TrinityCore](https://github.com/TrinityCore/TrinityCore) and its contributors. Everything below the
   line is TrinityCore's own README.
-- mod-rotation-bot was ported from its AzerothCore version.
+- mod-rotation-bot is by NotCronky, written for AzerothCore and ported to this fork.
 - [fkYAML](https://github.com/fktn-k/fkYAML) (MIT) is bundled with mod-rotation-bot.
 - [mod-playerbots](https://github.com/mod-playerbots/mod-playerbots), [mod-individual-progression](https://github.com/ZhengPeiRu21/mod-individual-progression)
   and [vMangos](https://github.com/vmangos/core) are references for the bot and progression plans.

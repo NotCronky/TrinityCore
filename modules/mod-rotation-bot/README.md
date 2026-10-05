@@ -21,7 +21,7 @@ What profiles don't do: poisons, traps and placing ground effects anywhere but a
 
 ## TrinityCore port
 
-Ported from the AzerothCore module. It needs these additions to the core, each marked `// MODULE HOOK`:
+Written for AzerothCore by NotCronky and ported to TrinityCore. The port needs these additions to the core, each marked `// MODULE HOOK`:
 
 - `PlayerScript::OnAfterUpdate(Player*, uint32 diff)`, called at the end of `Player::Update`: drives the tick.
 - `Spell::GetRemainingCastTime()`: time left on an enemy's cast (the same accessor as TrinityCore master).
