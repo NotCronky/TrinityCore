@@ -45,6 +45,8 @@ public:
     // Sends a companion to attack the unit (.bot pull).
     void SetPullTarget(ObjectGuid target) { _pullTarget = target; }
     State GetState() const { return _state; }
+    // What a questing bot is doing; nullptr for companions and before it has started.
+    BotQuester const* GetQuester() const { return _quester.get(); }
     WorldSession* GetSession() const { return _session.get(); }
 
     // Starts logging in. Returns false when the session can't be created.

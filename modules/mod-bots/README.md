@@ -10,25 +10,34 @@ their own around where they are; players' alts come along as companions that fol
 
 With `Bots.Questing.Enable = 1`, each of the server's bots, once a second (four times a second in a fight):
 
-1. **Comes back to life** where it died, 15 seconds after dying (no corpse runs yet).
+1. **When dead, does a corpse run:** releases after 5 seconds, runs back from the graveyard as a ghost and
+   takes its body back (the server's reclaim delay applies); if that takes over 5 minutes, or the body is
+   on another map, it comes back to life where it is.
 2. **Fights** whatever is attacking it, with mod-rotation-bot.
 3. **Eats and drinks** below 60% health or mana, until full.
-4. **Loots** corpses it tapped within 30 yards: everything, and the money (like a client: `CMSG_LOOT`,
+4. **Sells and repairs:** with fewer than 4 free bag slots or gear under 25% durability, it walks to the
+   nearest friendly vendor (one that repairs, if it needs that), sells junk and gear and goods it won't
+   use (keeping quest items, consumables, reagents, bags and upgrades), and repairs.
+5. **Loots** corpses it tapped within 30 yards: everything, and the money (like a client: `CMSG_LOOT`,
    `CMSG_AUTOSTORE_LOOT_ITEM`).
-5. **Hands in** finished quests, picking the reward that scores best for its class and role, and wears
+6. **Hands in** finished quests, picking the reward that scores best for its class and role, and wears
    anything in its bags that is better than what it has on.
-6. **Takes quests** from the nearest quest giver within 250 yards that has quests it can do.
-7. **Hunts** what its quests need: creatures to kill, and creatures that drop the quest items; when none
-   are alive near it, it walks to where they spawn.
-8. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
-9. **Travels** to the nearest quest giver on its continent with quests for it, when there is nothing to
-   do nearby.
+7. **Takes quests** from the nearest quest giver within 250 yards that has quests it can do.
+8. **Hunts** what its quests need: creatures to kill or loot quest items from, and objects to use or take
+   quest items from (crates, plants...), whichever is nearer; when none are there, it walks to where they
+   spawn.
+9. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
+10. **Travels** to the nearest quest giver on its continent with quests for it, when there is nothing to
+    do nearby.
+
+A quest giver or ender it finds nobody at (event or phased NPCs listed in the database), or gets no quest
+from, is skipped for 10 minutes.
 
 When it levels up, it learns the class spells a trainer would teach and spends its talent points (in the
 tree it has most points in, or one picked from its guid at first).
 
-**Quests it skips for now:** anything needing a game object (using one, or items from one), escorts,
-events, timed and repeatable quests, and quests handed in to an object. It doesn't sell, train
+**Quests it skips for now:** escorts, events, spell-cast credit, timed and repeatable quests, quests handed
+in to an object, and items from objects other than chests. It doesn't sell, train
 professions, use the auction house, take flight paths or boats, or move to the next zone's quest hub
 other than by walking on the same continent; those are later steps of phase 3.
 
@@ -99,7 +108,8 @@ The server creates `Bots.Population.Count` bot characters (1000 by default) once
   the database drops queued saves.
 
 `.bot population` (administrators and the console) shows the target, created and online bots per faction,
-and the average and worst world tick over the last minute.
+the average and worst world tick over the last minute, and how many questing bots are doing what
+(fighting, hunting, travelling, dead...).
 
 ### Load test (2026-10-05, one map thread, bots idle)
 

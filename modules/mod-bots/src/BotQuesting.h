@@ -29,6 +29,13 @@ public:
         Position Pos;
     };
 
+    struct Vendor
+    {
+        Spawn Where;
+        bool Repairs;
+        uint32 Faction; // FactionTemplate.dbc
+    };
+
     static BotQuestData& Instance();
     void Load();
 
@@ -42,9 +49,14 @@ public:
     std::vector<uint32> const* GetDroppers(uint32 itemId) const;
     // Quest givers' spawns on a map.
     std::vector<Spawn> const* GetGivers(uint32 mapId) const;
+    // Game objects' spawns, and the objects a quest item comes from (chests, crates, plants...).
+    std::vector<Spawn> const* GetObjectSpawns(uint32 entry) const;
+    std::vector<uint32> const* GetObjectSources(uint32 itemId) const;
+    // Vendors on a map.
+    std::vector<Vendor> const* GetVendors(uint32 mapId) const;
 
-    // Whether bots can do the quest: it needs only creatures killed and items they drop, is handed in
-    // to a creature, and isn't an event, escort or timed quest.
+    // Whether bots can do the quest: it needs only creatures killed, objects used, and items from
+    // creatures or objects, is handed in to a creature, and isn't an event, escort or timed quest.
     bool IsSupported(Quest const* quest) const;
 
 private:
@@ -56,6 +68,9 @@ private:
     std::unordered_map<uint32, std::vector<uint32>> _questsOf;
     std::unordered_map<uint32, std::vector<uint32>> _droppers;
     std::unordered_map<uint32, std::vector<Spawn>> _givers;
+    std::unordered_map<uint32, std::vector<Spawn>> _objectSpawns;
+    std::unordered_map<uint32, std::vector<uint32>> _objectSources;
+    std::unordered_map<uint32, std::vector<Vendor>> _vendors;
 };
 
 #define sBotQuestData BotQuestData::Instance()
@@ -63,9 +78,15 @@ private:
 // One of the server's bots questing on its own: it takes quests near it, kills and loots what they
 // need, hands them in, equips better rewards, learns spells and spends talents as it levels, and grinds
 // when there is nothing to do.
+using Spawn = BotQuestData::Spawn;
+
 class BotQuester
 {
 public:
+    enum class Activity : uint8 { Idle, Dead, Fighting, Resting, Vendor, Looting, HandingIn, TakingQuests, Hunting, Grinding, Travelling, Count };
+    static char const* GetActivityName(Activity activity);
+    Activity GetActivity() const { return _activity; }
+
     // Called on the world thread while maps are idle. Returns how long until it wants to think again.
     uint32 Think(Player* bot);
 
@@ -75,6 +96,8 @@ public:
 private:
     bool Fight(Player* bot);
     bool Loot(Player* bot);
+    bool VisitVendor(Player* bot);
+    void Dead(Player* bot);
     bool HandIn(Player* bot);
     bool TakeQuests(Player* bot);
     bool Hunt(Player* bot);
@@ -86,6 +109,7 @@ private:
     void LevelUp(Player* bot);
     void EquipUpgrades(Player* bot);
 
+    Activity _activity = Activity::Idle;
     uint8 _lastLevel = 0;
     uint32 _deadMs = 0;
     uint32 _lootAttemptMs = 0;
@@ -93,9 +117,17 @@ private:
     Position _moveDest;
     bool _moving = false;
     std::unordered_set<ObjectGuid> _lootedCorpses;
+    std::unordered_set<ObjectGuid> _usedObjects;
     uint32 _travelCheckMs = 0;
     bool _travelling = false;
     Position _travelDest;
+    // Quest giver and ender spawns it found nobody at (event or phased NPCs) or got nothing from; skipped
+    // for a while so it doesn't walk back and forth.
+    std::unordered_set<Spawn const*> _skippedSpawns;
+    uint32 _skipResetMs = 0;
+    uint32 _vendorCooldownMs = 0;  // After a vendor visit, so full bags of unsellable items don't send it back
+    uint32 _ghostMs = 0;
+    uint32 _reclaimMs = 0;
 };
 
 #endif

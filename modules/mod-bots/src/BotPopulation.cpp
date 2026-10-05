@@ -4,6 +4,7 @@
 
 #include "BotPopulation.h"
 #include "BotMgr.h"
+#include "BotQuesting.h"
 
 #include "AccountMgr.h"
 #include "CharacterCache.h"
@@ -470,6 +471,19 @@ std::vector<std::string> BotPopulation::Describe() const
         }
     }
 
+    // What the questing bots are doing.
+    std::array<uint32, size_t(BotQuester::Activity::Count)> activities = { };
+    for (uint8 faction = 0; faction < FACTION_COUNT; ++faction)
+        for (ObjectGuid guid : _bots[faction])
+            if (Bot* bot = sBotMgr.Find(guid); bot && bot->GetQuester())
+                ++activities[size_t(bot->GetQuester()->GetActivity())];
+
+    std::string doing;
+    for (size_t i = 0; i < activities.size(); ++i)
+        if (activities[i])
+            doing += Trinity::StringFormat("{}{} {}", doing.empty() ? "" : ", ", activities[i],
+                BotQuester::GetActivityName(BotQuester::Activity(i)));
+
     uint32 maxTick = _tickTimes.empty() ? 0 : *std::max_element(_tickTimes.begin(), _tickTimes.end());
     uint32 averageTick = _tickTimes.empty() ? 0 : uint32(_tickTimeTotal / _tickTimes.size());
 
@@ -482,5 +496,7 @@ std::vector<std::string> BotPopulation::Describe() const
         online[FACTION_HORDE], loggingIn[FACTION_ALLIANCE] + loggingIn[FACTION_HORDE]));
     lines.push_back(Trinity::StringFormat("World tick over the last minute: average {} ms, worst {} ms ({} ticks).",
         averageTick, maxTick, _tickTimes.size()));
+    if (!doing.empty())
+        lines.push_back("Doing: " + doing + ".");
     return lines;
 }
