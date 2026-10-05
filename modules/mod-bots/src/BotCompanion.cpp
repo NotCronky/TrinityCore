@@ -393,9 +393,17 @@ namespace BotCompanion
             bool usesMana = bot->GetPowerType() == POWER_MANA;
             bool eating = bot->HasAuraType(SPELL_AURA_MOD_REGEN);
             bool drinking = bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
-            // Seated while the food or drink lasts, also when sent to eat at full health (.bot eat).
+            // Seated while the food or drink lasts, also when sent to eat at full health (.bot eat). Only one
+            // can start at a time, so the other follows on a later update: a mana user that eats also drinks,
+            // and one that drinks also eats while below full health.
             if (eating || drinking)
+            {
+                if (eating && !drinking && usesMana)
+                    Consume(bot, WATER);
+                else if (drinking && !eating && bot->GetHealthPct() < 100.0f)
+                    Consume(bot, FOOD);
                 return;
+            }
 
             bool ate = !eating && bot->GetHealthPct() < 60.0f && Consume(bot, FOOD);
             bool drank = !drinking && usesMana && bot->GetPowerPct(POWER_MANA) < 60.0f && Consume(bot, WATER);
