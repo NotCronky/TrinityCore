@@ -5,6 +5,9 @@
 #include "BotMgr.h"
 
 #include "AccountMgr.h"
+#include "BotCompanion.h"
+#include "Group.h"
+#include "RotationBotMgr.h" // mod-rotation-bot: companions fight with the player's rotation
 #include "CharacterCache.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
@@ -14,6 +17,7 @@
 #include "Player.h"
 #include "World.h"
 #include "Timer.h"
+#include "Util.h"
 #include "WorldSession.h"
 
 #include <chrono>
@@ -21,6 +25,9 @@
 
 namespace
 {
+    // How often a companion decides what to do.
+    constexpr uint32 COMPANION_UPDATE_MS = 250;
+
     // A login that hasn't finished by then is given up.
     constexpr uint32 LOGIN_TIMEOUT_MS = 30 * IN_MILLISECONDS;
 
@@ -190,9 +197,33 @@ bool Bot::Update(uint32 diff)
             }
             break;
         case State::InWorld:
-            if (!_session->GetPlayer())
+        {
+            Player* player = _session->GetPlayer();
+            if (!player)
                 return false;
+
+            if (_ownerGuid.IsEmpty() || !player->IsInWorld())
+                break;
+
+            _companionTimerMs += diff;
+            if (_companionTimerMs < COMPANION_UPDATE_MS)
+                break;
+            _companionTimerMs = 0;
+
+            Player* owner = ObjectAccessor::FindPlayer(_ownerGuid);
+            if (!owner || !owner->IsInWorld())
+                break;
+
+            if (!_companionStarted)
+            {
+                BotCompanion::JoinGroup(player, owner);
+                sRotationBotMgr.Enable(player);
+                _companionStarted = true;
+            }
+
+            BotCompanion::Update(player, owner, _staying);
             break;
+        }
     }
 
     return !_removalRequested;
@@ -203,8 +234,15 @@ void Bot::LogOut()
     if (!_session)
         return;
 
-    if (_session->GetPlayer())
+    if (Player* player = _session->GetPlayer())
+    {
+        // A companion leaves its owner's group; the server's own bots never join one.
+        if (!_ownerGuid.IsEmpty())
+            if (Group* group = player->GetGroup())
+                group->RemoveMember(player->GetGUID());
+
         _session->LogoutPlayer(true);
+    }
 
     // Deleting the session sends nothing more to the bot, so the handler can go with it.
     _session.reset();
@@ -217,7 +255,7 @@ BotMgr& BotMgr::Instance()
     return instance;
 }
 
-std::string BotMgr::Add(ObjectGuid guid, uint32 ownerAccountId)
+std::string BotMgr::Add(ObjectGuid guid, uint32 ownerAccountId, ObjectGuid ownerGuid)
 {
     CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(guid);
     if (!character)
@@ -240,6 +278,7 @@ std::string BotMgr::Add(ObjectGuid guid, uint32 ownerAccountId)
     if (!bot->Start(std::move(accountName)))
         return "Couldn't start a session for " + character->Name + ".";
 
+    bot->SetOwner(ownerGuid);
     TC_LOG_INFO("module", "mod-bots: logging in {}.", character->Name);
     _bots.emplace(guid, std::move(bot));
     return {};
@@ -260,6 +299,17 @@ void BotMgr::RemoveAll(uint32 ownerAccountId)
     for (auto& [guid, bot] : _bots)
         if (!ownerAccountId || bot->GetOwnerAccountId() == ownerAccountId)
             bot->RequestRemoval();
+}
+
+std::vector<Bot*> BotMgr::FindBots(uint32 ownerAccountId, std::string const& nameOrAll) const
+{
+    std::vector<Bot*> bots;
+    for (auto const& [guid, bot] : _bots)
+        if ((!ownerAccountId || bot->GetOwnerAccountId() == ownerAccountId) &&
+            (nameOrAll == "all" || StringEqualI(bot->GetName(), nameOrAll)))
+            bots.push_back(bot.get());
+
+    return bots;
 }
 
 Bot* BotMgr::Find(ObjectGuid guid) const

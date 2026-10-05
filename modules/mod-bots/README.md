@@ -3,9 +3,28 @@
 Player bots: real characters logged into the world without a game client. The full design is in
 [doc/BOT_SYSTEM_PLAN.md](../../doc/BOT_SYSTEM_PLAN.md).
 
-Status: **phase 1**. The server creates and keeps its own bot population online, and players can log
-their own alts in as bots. Bots stand where they logged in and do nothing else yet: no AI, movement or
-combat.
+Status: **phase 2**. The server creates and keeps its own bot population online (they stand still for
+now), and players' alts come along as companions that follow and fight.
+
+## Companions
+
+A bot you add in game (`.bot add <alt>`) is your companion:
+
+- **Joins your group** (making one if you have none) and leaves it when it logs out.
+- **Follows you**, and is brought to you when it falls more than 80 yards behind or is on another map,
+  so it comes along through instance portals.
+- **Fights what you fight:** your target once you're in combat, or whatever attacks you or it. Melee
+  bots stand at the target, ranged bots 25 yards away, healers stay with you. Spells come from
+  mod-rotation-bot, which must be built too (companions turn it on for themselves).
+- **Comes back to life** next to you once the fight is over, if it died.
+- `.bot stay <name|all>` keeps them where they are; `.bot follow <name|all>` brings them along again.
+
+`.bot gear <name|all> [spec]` gets a bot ready for its level: it learns the class spells a trainer would
+teach, resets its talents and spends them in the spec (the tree name, e.g. `arms`, `holy`,
+`beast_mastery`, or 1-3; by default the tree it has most points in), deepest talents first so the key
+talent comes as early as possible, and equips the best gear it can use for its level and role (dungeon
+item level: about level + 6 up to 60, 116 at 70, 190 at 80). Old gear goes to its bags, or by mail when
+they are full; nothing is destroyed. Rings and ammunition aren't picked yet.
 
 ## Bot population
 
@@ -46,6 +65,8 @@ and the average and worst world tick over the last minute.
 | `.bot remove <character>` | Logs the bot out and saves it. |
 | `.bot removeall` | Logs out every bot you added. |
 | `.bot list` | The bots you added and whether each is logging in, in the world or logging out. |
+| `.bot gear <name\|all> [spec]` | Class spells, talents in the spec, and gear for the bot's level. |
+| `.bot stay <name\|all>` / `.bot follow <name\|all>` | Companions stay put, or follow you again. |
 
 - **In game, everyone can use them, but only for characters on their own account.** Nobody can log in,
   remove or see another account's characters as bots, game masters included.

@@ -3,7 +3,9 @@
  */
 
 #include "BotMgr.h"
+#include "BotCompanion.h"
 #include "BotPopulation.h"
+#include "Player.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -42,6 +44,9 @@ public:
             { "removeall", HandleRemoveAll, rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "list",      HandleList,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "population", HandlePopulation, rbac::RBAC_ROLE_ADMINISTRATOR, Console::Yes },
+            { "gear",      HandleGear,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "stay",      HandleStay,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "follow",    HandleFollow,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
         };
 
         static ChatCommandTable commandTable =
@@ -60,7 +65,10 @@ public:
             return true;
         }
 
-        std::string error = sBotMgr.Add(character.GetGUID(), GetOwnerAccountId(handler));
+        // Added in game, the bot is a companion of the character who added it.
+        ObjectGuid owner = handler->GetSession() && handler->GetSession()->GetPlayer() ?
+            handler->GetSession()->GetPlayer()->GetGUID() : ObjectGuid::Empty;
+        std::string error = sBotMgr.Add(character.GetGUID(), GetOwnerAccountId(handler), owner);
         handler->SendSysMessage(error.empty() ? Trinity::StringFormat("Logging in {} as a bot.", character.GetName()) : error);
         return true;
     }
@@ -77,6 +85,56 @@ public:
     {
         sBotMgr.RemoveAll(GetOwnerAccountId(handler));
         handler->SendSysMessage(handler->GetSession() ? "Your bots are logging out." : "Every bot is logging out.");
+        return true;
+    }
+
+    // .bot gear <name|all> [spec]: class spells for the level, talents in the spec, and the best gear for both.
+    static bool HandleGear(ChatHandler* handler, std::string who, Optional<std::string> spec)
+    {
+        std::vector<Bot*> bots = sBotMgr.FindBots(GetOwnerAccountId(handler), who);
+        if (bots.empty())
+            handler->SendSysMessage(Trinity::StringFormat("No bot of yours is called {}.", who));
+
+        for (Bot* bot : bots)
+        {
+            Player* player = bot->GetSession() ? bot->GetSession()->GetPlayer() : nullptr;
+            if (!player || !player->IsInWorld())
+            {
+                handler->SendSysMessage(Trinity::StringFormat("{} isn't in the world yet.", bot->GetName()));
+                continue;
+            }
+
+            Optional<uint8> tree;
+            if (spec)
+            {
+                tree = BotCompanion::ParseSpec(player->GetClass(), *spec);
+                if (!tree)
+                {
+                    handler->SendSysMessage(Trinity::StringFormat("{}: \"{}\" isn't a spec of the class; use its tree name or 1-3.",
+                        bot->GetName(), *spec));
+                    continue;
+                }
+            }
+
+            handler->SendSysMessage(BotCompanion::Equip(player, tree));
+        }
+
+        return true;
+    }
+
+    static bool HandleStay(ChatHandler* handler, std::string who)
+    {
+        for (Bot* bot : sBotMgr.FindBots(GetOwnerAccountId(handler), who))
+            bot->SetStaying(true);
+        handler->SendSysMessage("Staying.");
+        return true;
+    }
+
+    static bool HandleFollow(ChatHandler* handler, std::string who)
+    {
+        for (Bot* bot : sBotMgr.FindBots(GetOwnerAccountId(handler), who))
+            bot->SetStaying(false);
+        handler->SendSysMessage("Following.");
         return true;
     }
 

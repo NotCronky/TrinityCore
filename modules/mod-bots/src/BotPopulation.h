@@ -103,6 +103,8 @@ private:
     bool _outOfNames = false;
 
     float _loginCredit = 0.0f;
+    // Bots this manager logged in; only these are logged out again when there are too many.
+    std::unordered_set<ObjectGuid> _loggedIn;
 
     // World tick times over the last minute, for the load test.
     std::deque<uint32> _tickTimes;

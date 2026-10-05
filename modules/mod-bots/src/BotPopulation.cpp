@@ -417,7 +417,10 @@ void BotPopulation::LogInBots(uint32 diff)
                 continue;
 
             if (sBotMgr.Add(guid, 0).empty())
+            {
+                _loggedIn.insert(guid);
                 loggedIn = true;
+            }
         }
 
         if (!loggedIn)
@@ -437,11 +440,14 @@ void BotPopulation::LogOutExtraBots()
         for (ObjectGuid guid : _bots[faction])
         {
             Bot* bot = sBotMgr.Find(guid);
-            if (!bot || bot->IsRemovalRequested())
+            if (!bot || bot->IsRemovalRequested() || !_loggedIn.count(guid))
                 continue;
 
             if (++online > target)
+            {
                 bot->RequestRemoval();
+                _loggedIn.erase(guid);
+            }
         }
     }
 }
