@@ -3,8 +3,49 @@
 Player bots: real characters logged into the world without a game client. The full design is in
 [doc/BOT_SYSTEM_PLAN.md](../../doc/BOT_SYSTEM_PLAN.md).
 
-Status: **phase 2**. The server creates and keeps its own bot population online (they stand still for
-now), and players' alts come along as companions that follow and fight.
+Status: **phase 3, step 1**. The server creates and keeps its own bot population online and they quest on
+their own around where they are; players' alts come along as companions that follow and fight.
+
+## Questing (the server's own bots)
+
+With `Bots.Questing.Enable = 1`, each of the server's bots, once a second (four times a second in a fight):
+
+1. **Comes back to life** where it died, 15 seconds after dying (no corpse runs yet).
+2. **Fights** whatever is attacking it, with mod-rotation-bot.
+3. **Eats and drinks** below 60% health or mana, until full.
+4. **Loots** corpses it tapped within 30 yards: everything, and the money (like a client: `CMSG_LOOT`,
+   `CMSG_AUTOSTORE_LOOT_ITEM`).
+5. **Hands in** finished quests, picking the reward that scores best for its class and role, and wears
+   anything in its bags that is better than what it has on.
+6. **Takes quests** from the nearest quest giver within 250 yards that has quests it can do.
+7. **Hunts** what its quests need: creatures to kill, and creatures that drop the quest items; when none
+   are alive near it, it walks to where they spawn.
+8. **Grinds** mobs around its level (not elites, critters or civilians) that nobody else has tapped.
+9. **Travels** to the nearest quest giver on its continent with quests for it, when there is nothing to
+   do nearby.
+
+When it levels up, it learns the class spells a trainer would teach and spends its talent points (in the
+tree it has most points in, or one picked from its guid at first).
+
+**Quests it skips for now:** anything needing a game object (using one, or items from one), escorts,
+events, timed and repeatable quests, and quests handed in to an object. It doesn't sell, train
+professions, use the auction house, take flight paths or boats, or move to the next zone's quest hub
+other than by walking on the same continent; those are later steps of phase 3.
+
+The data comes from the world database at startup: creature spawns, `creature_queststarter` and
+`creature_questender`, and quest items in `creature_loot_template` (`QuestRequired = 1`).
+
+### Questing test (2026-10-06, 1000 bots, one map thread)
+
+| | |
+|---|---|
+| In 5 minutes | 1328 quests handed in, 665 more taken; 389 experience per bot; 27 reached level 2 |
+| World tick | 1 ms average, 20-26 ms worst per minute |
+| worldserver | 1.8 GB memory, 41% of one CPU core |
+| Errors | none |
+
+500 bots per faction share a few starting zones, so they compete for the same creatures; levelling
+speeds up as they spread out.
 
 ## Companions
 

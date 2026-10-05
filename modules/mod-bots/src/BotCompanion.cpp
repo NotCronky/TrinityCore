@@ -482,9 +482,10 @@ namespace BotCompanion
 
         // Spends every talent point, deepest talent first in the chosen tree so its key talents (Mortal
         // Strike, Shadowform...) come as early as the points allow, then in the other trees.
-        uint32 SpendTalents(Player* bot, uint8 tree)
+        uint32 SpendTalents(Player* bot, uint8 tree, bool reset = true)
         {
-            bot->ResetTalents(true);
+            if (reset)
+                bot->ResetTalents(true);
             uint8 group = bot->GetActiveTalentGroup();
 
             std::array<std::vector<TalentEntry const*>, 3> trees;
@@ -709,5 +710,59 @@ namespace BotCompanion
 
         return Trinity::StringFormat("{}: level {} {}, {} talent points, {} items equipped.", bot->GetName(), bot->GetLevel(),
             GetSpecName(bot->GetClass(), chosen), talents, items);
+    }
+
+    void LearnSpellsForLevel(Player* bot)
+    {
+        LearnClassSpells(bot);
+    }
+
+    void SpendFreeTalents(Player* bot, uint8 tree)
+    {
+        if (bot->GetFreeTalentPoints() > 0)
+            SpendTalents(bot, tree, false);
+    }
+
+    float ScoreItem(Player* bot, ItemTemplate const& item)
+    {
+        Role role = GetRole(bot);
+        if (role == Role::Tank)
+            role = Role::Melee;
+
+        bool strength = bot->GetClass() == CLASS_WARRIOR || bot->GetClass() == CLASS_DEATH_KNIGHT ||
+            bot->GetClass() == CLASS_PALADIN;
+        return Score(bot, item, role, strength);
+    }
+
+    bool RestIfNeeded(Player* bot)
+    {
+        if (bot->IsInCombat())
+            return false;
+
+        bool usesMana = bot->GetPowerType() == POWER_MANA;
+        bool eating = bot->HasAuraType(SPELL_AURA_MOD_REGEN);
+        bool drinking = bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
+        if (eating || drinking)
+        {
+            if (eating && !drinking && usesMana)
+                Consume(bot, WATER);
+            else if (drinking && !eating && bot->GetHealthPct() < 100.0f)
+                Consume(bot, FOOD);
+
+            // Up again once full.
+            bool full = bot->GetHealthPct() >= 100.0f && (!usesMana || bot->GetPowerPct(POWER_MANA) >= 100.0f);
+            if (full)
+                bot->SetStandState(UNIT_STAND_STATE_STAND);
+            return !full;
+        }
+
+        bool ate = bot->GetHealthPct() < 60.0f && Consume(bot, FOOD);
+        bool drank = usesMana && bot->GetPowerPct(POWER_MANA) < 60.0f && Consume(bot, WATER);
+        if (ate || drank)
+        {
+            bot->GetMotionMaster()->Clear();
+            bot->StopMoving();
+        }
+        return ate || drank;
     }
 }

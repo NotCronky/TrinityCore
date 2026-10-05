@@ -5,6 +5,7 @@
 #include "BotMgr.h"
 #include "BotCompanion.h"
 #include "BotPopulation.h"
+#include "BotQuesting.h"
 #include "Player.h"
 
 #include "Chat.h"
@@ -249,12 +250,17 @@ public:
     {
         BotsEnabled = sConfigMgr->GetBoolDefault("Bots.Enable", true);
         sBotPopulation.LoadConfig();
+        sBotMgr.SetQuestingEnabled(sConfigMgr->GetBoolDefault("Bots.Questing.Enable", true));
         if (!BotsEnabled)
             sBotMgr.RemoveAll(0);
     }
 
     // Names, census and earlier bots; the character cache and quests are loaded by now.
-    void OnStartup() override { sBotPopulation.Load(); }
+    void OnStartup() override
+    {
+        sBotQuestData.Load();
+        sBotPopulation.Load();
+    }
 
     // After the maps have updated, so bots can log in and out safely.
     void OnUpdate(uint32 diff) override

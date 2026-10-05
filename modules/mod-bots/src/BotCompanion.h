@@ -13,6 +13,7 @@
 #include <vector>
 
 class Player;
+struct ItemTemplate;
 
 // A player's own alts as bots: they join the player's group, follow, fight what the player fights
 // (mod-rotation-bot picks their spells) and come back when they die or fall behind.
@@ -37,6 +38,16 @@ namespace BotCompanion
     // Eats, and drinks if it uses mana, whatever its health and mana (.bot eat). False in combat or without
     // food or water.
     bool EatAndDrink(Player* bot);
+
+    // For the server's own bots (BotQuester).
+    // Learns the class spells a trainer would teach at the bot's level.
+    void LearnSpellsForLevel(Player* bot);
+    // Spends unspent talent points in the tree without resetting the others.
+    void SpendFreeTalents(Player* bot, uint8 tree);
+    // How good an item is for the bot's class, role and level; below 0 when it shouldn't wear it.
+    float ScoreItem(Player* bot, ItemTemplate const& item);
+    // Out of combat: keeps eating and drinking until full, or starts below 60%. True while resting.
+    bool RestIfNeeded(Player* bot);
 
     // Joins the owner's group, making one when there is none.
     void JoinGroup(Player* bot, Player* owner);

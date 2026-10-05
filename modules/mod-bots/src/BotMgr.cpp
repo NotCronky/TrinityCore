@@ -6,6 +6,7 @@
 
 #include "AccountMgr.h"
 #include "BotCompanion.h"
+#include "BotQuesting.h"
 #include "Group.h"
 #include "RotationBotMgr.h" // mod-rotation-bot: companions fight with the player's rotation
 #include "CharacterCache.h"
@@ -40,6 +41,7 @@ namespace
         {
             case SMSG_CHAR_ENUM:
             case SMSG_CLIENT_CONTROL_UPDATE:
+            case SMSG_LOOT_RESPONSE:
             case SMSG_NEW_WORLD:
             case MSG_MOVE_TELEPORT_ACK:
                 return true;
@@ -120,6 +122,10 @@ void Bot::HandlePacket(WorldPacket& packet)
             SetActiveMover(guid);
             break;
         }
+        case SMSG_LOOT_RESPONSE:
+            if (_quester && _session->GetPlayer())
+                _quester->OnLootResponse(_session->GetPlayer(), packet);
+            break;
         // A far teleport waits for the client to load the new map; a client then says again which unit it moves.
         case SMSG_NEW_WORLD:
             if (Player* player = _session->GetPlayer(); player && player->IsBeingTeleportedFar())
@@ -185,6 +191,9 @@ bool Bot::Update(uint32 diff)
                 // movement packets of a client that hasn't, such as the reply to a teleport.
                 SetActiveMover(player->GetGUID());
                 BotCompanion::GiveSupplies(player, _givenBags);
+                // The server's own bots fight with mod-rotation-bot too; companions turn it on themselves.
+                if (_ownerGuid.IsEmpty())
+                    sRotationBotMgr.Enable(player);
                 _state = State::InWorld;
                 TC_LOG_INFO("module", "mod-bots: {} is in the world.", _name);
                 break;
@@ -204,8 +213,30 @@ bool Bot::Update(uint32 diff)
             if (!player)
                 return false;
 
-            if (_ownerGuid.IsEmpty() || !player->IsInWorld())
+            if (!player->IsInWorld())
                 break;
+
+            // The server's own bots quest on their own.
+            if (_ownerGuid.IsEmpty())
+            {
+                if (!sBotMgr.IsQuestingEnabled())
+                    break;
+
+                if (!_quester)
+                    _quester = std::make_unique<BotQuester>();
+
+                _suppliesTimerMs += diff;
+                if (_suppliesTimerMs >= SUPPLIES_UPDATE_MS && !player->IsInCombat())
+                {
+                    _suppliesTimerMs = 0;
+                    BotCompanion::GiveSupplies(player, _givenBags);
+                }
+
+                _questerTimerMs = _questerTimerMs > diff ? _questerTimerMs - diff : 0;
+                if (!_questerTimerMs)
+                    _questerTimerMs = _quester->Think(player);
+                break;
+            }
 
             // Food and water are topped up now and then, out of combat.
             _suppliesTimerMs += diff;

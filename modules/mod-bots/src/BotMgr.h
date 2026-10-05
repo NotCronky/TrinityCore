@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+class BotQuester;
 class WorldSession;
 
 // One character logged in as a bot. Its session has no socket: packets the server sends it arrive in
@@ -78,6 +79,8 @@ private:
     uint32 _companionTimerMs = 0;
     uint32 _suppliesTimerMs = 0;
     std::vector<uint8> _givenBags; // Bag slots filled with a lent bag, taken back from alts at logout
+    std::unique_ptr<BotQuester> _quester; // The server's own bots quest on their own
+    uint32 _questerTimerMs = 0;
     State _state = State::RequestingCharacters;
     std::unique_ptr<WorldSession> _session;
     uint32 _loginTimeMs = 0;
@@ -111,6 +114,9 @@ public:
 
     // World thread, while maps are idle.
     void Update(uint32 diff);
+    // Whether the server's own bots quest (Bots.Questing.Enable).
+    void SetQuestingEnabled(bool enabled) { _questingEnabled = enabled; }
+    bool IsQuestingEnabled() const { return _questingEnabled; }
     // At shutdown, while maps are still loaded: logs every bot out so they are saved.
     void LogOutAll();
 
@@ -119,6 +125,7 @@ private:
 
     // Only touched by the world thread, outside map updates.
     std::unordered_map<ObjectGuid, std::unique_ptr<Bot>> _bots;
+    bool _questingEnabled = true;
 };
 
 #define sBotMgr BotMgr::Instance()

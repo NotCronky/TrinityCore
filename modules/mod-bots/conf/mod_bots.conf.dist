@@ -48,3 +48,14 @@ Bots.Population.LoginsPerSecond = 10
 #
 
 Bots.Population.CharactersPerAccount = 10
+
+#
+#    Bots.Questing.Enable
+#        Description: The server's own bots quest on their own: they take quests near them, kill and
+#                     loot what the quests need, hand them in, equip better rewards, learn spells and
+#                     spend talents as they level, and grind when there is nothing else to do.
+#        Default:     1 - Enabled
+#                     0 - Disabled (they stand where they logged in)
+#
+
+Bots.Questing.Enable = 1
