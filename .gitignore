@@ -23,3 +23,7 @@ nbproject/*
 cmake-build-*/
 .vs
 *.user
+
+# Install folder of rebuild.sh and compile.sh: binaries, configs and the client data
+# extract-data.sh extracts. Never commit it; the extracted data is Blizzard's.
+/server/
