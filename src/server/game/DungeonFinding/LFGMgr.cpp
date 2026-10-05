@@ -1740,6 +1740,9 @@ LfgLockMap const LFGMgr::GetLockedDungeons(ObjectGuid guid)
         lockData = LFG_LOCKSTATUS_ATTUNEMENT_TOO_HIGH_LEVEL;
         */
 
+        if (!lockStatus) // MODULE HOOK: e.g. a dungeon from a later patch than the character's
+            sScriptMgr->OnPlayerLfgDungeonLockStatus(player, dungeon->id, dungeon->map, lockStatus);
+
         if (lockStatus)
             lock[dungeon->Entry()] = lockStatus;
     }

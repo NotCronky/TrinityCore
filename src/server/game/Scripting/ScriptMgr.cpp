@@ -2002,6 +2002,32 @@ bool ScriptMgr::CanPlayerLogin(WorldSession* session, ObjectGuid guid)
     return true;
 }
 
+// MODULE HOOK
+bool ScriptMgr::CanPlayerEnterMap(Player* player, MapEntry const* map)
+{
+    FOR_SCRIPTS_RET(PlayerScript, itr, end, true)
+        if (!itr->second->CanEnterMap(player, map))
+            return false;
+
+    return true;
+}
+
+// MODULE HOOK
+bool ScriptMgr::CanPlayerJoinBattleground(Player const* player, Battleground const* bg)
+{
+    FOR_SCRIPTS_RET(PlayerScript, itr, end, true)
+        if (!itr->second->CanJoinBattleground(player, bg))
+            return false;
+
+    return true;
+}
+
+// MODULE HOOK
+void ScriptMgr::OnPlayerLfgDungeonLockStatus(Player const* player, uint32 dungeonId, uint32 mapId, uint32& lockStatus)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnLfgDungeonLockStatus(player, dungeonId, mapId, lockStatus);
+}
+
 // Account
 void ScriptMgr::OnAccountLogin(uint32 accountId)
 {
@@ -2729,6 +2755,20 @@ void PlayerScript::OnAfterUpdate(Player* /*player*/, uint32 /*diff*/)
 bool PlayerScript::CanLogin(WorldSession* /*session*/, ObjectGuid /*guid*/)
 {
     return true;
+}
+
+bool PlayerScript::CanEnterMap(Player* /*player*/, MapEntry const* /*map*/)
+{
+    return true;
+}
+
+bool PlayerScript::CanJoinBattleground(Player const* /*player*/, Battleground const* /*bg*/)
+{
+    return true;
+}
+
+void PlayerScript::OnLfgDungeonLockStatus(Player const* /*player*/, uint32 /*dungeonId*/, uint32 /*mapId*/, uint32& /*lockStatus*/)
+{
 }
 
 AccountScript::AccountScript(char const* name)

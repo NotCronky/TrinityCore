@@ -1583,6 +1583,19 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     else
         TC_LOG_DEBUG("maps", "Player {} ({}) is being teleported to map (MapID: {})", GetName(), GetGUID().ToString(), mapid);
 
+    // MODULE HOOK: e.g. a map from a later patch than the character's. Handled like a missing expansion above.
+    if (mapid != GetMapId() && !sScriptMgr->CanPlayerEnterMap(this, mEntry))
+    {
+        if (Transport* transport = GetTransport())
+        {
+            transport->RemovePassenger(this);
+            RepopAtGraveyard();
+        }
+
+        SendTransferAborted(mapid, TRANSFER_ABORT_MAP_NOT_ALLOWED);
+        return false;
+    }
+
     if (m_vehicle)
         ExitVehicle();
 
@@ -22006,7 +22019,7 @@ bool Player::CanJoinToBattleground(Battleground const* bg) const
     else if (bg->IsRandom())
         perm = rbac::RBAC_PERM_JOIN_RANDOM_BG;
 
-    return GetSession()->HasPermission(perm);
+    return GetSession()->HasPermission(perm) && sScriptMgr->CanPlayerJoinBattleground(this, bg); // MODULE HOOK
 }
 
 bool Player::CanReportAfkDueToLimit()

@@ -727,6 +727,15 @@ class TC_GAME_API PlayerScript : public ScriptObject
         // MODULE HOOK: Called before a session loads a character to log it in; return false to refuse
         virtual bool CanLogin(WorldSession* session, ObjectGuid guid);
 
+        // MODULE HOOK: Called before a player is teleported to another map; return false to refuse
+        virtual bool CanEnterMap(Player* player, MapEntry const* map);
+
+        // MODULE HOOK: Called when a player tries to queue for a battleground or arena; return false to refuse
+        virtual bool CanJoinBattleground(Player const* player, Battleground const* bg);
+
+        // MODULE HOOK: Called for each Dungeon Finder dungeon nothing else locks; set lockStatus (LfgLockStatusType) to lock it
+        virtual void OnLfgDungeonLockStatus(Player const* player, uint32 dungeonId, uint32 mapId, uint32& lockStatus);
+
 };
 
 class TC_GAME_API AccountScript : public ScriptObject
@@ -1044,6 +1053,9 @@ class TC_GAME_API ScriptMgr
         void OnPlayerRepop(Player* player);
         void OnPlayerAfterUpdate(Player* player, uint32 diff); // MODULE HOOK
         bool CanPlayerLogin(WorldSession* session, ObjectGuid guid); // MODULE HOOK
+        bool CanPlayerEnterMap(Player* player, MapEntry const* map); // MODULE HOOK
+        bool CanPlayerJoinBattleground(Player const* player, Battleground const* bg); // MODULE HOOK
+        void OnPlayerLfgDungeonLockStatus(Player const* player, uint32 dungeonId, uint32 mapId, uint32& lockStatus); // MODULE HOOK
 
     public: /* AccountScript */
 
