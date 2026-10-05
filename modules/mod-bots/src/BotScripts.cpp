@@ -3,6 +3,7 @@
  */
 
 #include "BotMgr.h"
+#include "BotPopulation.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -40,6 +41,7 @@ public:
             { "remove",    HandleRemove,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "removeall", HandleRemoveAll, rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "list",      HandleList,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "population", HandlePopulation, rbac::RBAC_ROLE_ADMINISTRATOR, Console::Yes },
         };
 
         static ChatCommandTable commandTable =
@@ -75,6 +77,14 @@ public:
     {
         sBotMgr.RemoveAll(GetOwnerAccountId(handler));
         handler->SendSysMessage(handler->GetSession() ? "Your bots are logging out." : "Every bot is logging out.");
+        return true;
+    }
+
+    static bool HandlePopulation(ChatHandler* handler)
+    {
+        for (std::string const& line : sBotPopulation.Describe())
+            handler->SendSysMessage(line);
+
         return true;
     }
 
@@ -134,15 +144,29 @@ public:
     void OnConfigLoad(bool /*reload*/) override
     {
         BotsEnabled = sConfigMgr->GetBoolDefault("Bots.Enable", true);
+        sBotPopulation.LoadConfig();
         if (!BotsEnabled)
             sBotMgr.RemoveAll(0);
     }
 
+    // Names, census and earlier bots; the character cache and quests are loaded by now.
+    void OnStartup() override { sBotPopulation.Load(); }
+
     // After the maps have updated, so bots can log in and out safely.
-    void OnUpdate(uint32 diff) override { sBotMgr.Update(diff); }
+    void OnUpdate(uint32 diff) override
+    {
+        if (BotsEnabled)
+            sBotPopulation.Update(diff);
+
+        sBotMgr.Update(diff);
+    }
 
     // Before the maps unload, so every bot is saved.
-    void OnShutdown() override { sBotMgr.LogOutAll(); }
+    void OnShutdown() override
+    {
+        sBotPopulation.Shutdown();
+        sBotMgr.LogOutAll();
+    }
 };
 
 void AddSC_mod_bots()

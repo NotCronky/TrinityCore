@@ -6,13 +6,18 @@
 
 #include "AccountMgr.h"
 #include "CharacterCache.h"
+#include "DatabaseEnv.h"
 #include "GameTime.h"
 #include "Log.h"
 #include "ObjectAccessor.h"
 #include "Opcodes.h"
 #include "Player.h"
 #include "World.h"
+#include "Timer.h"
 #include "WorldSession.h"
+
+#include <chrono>
+#include <thread>
 
 namespace
 {
@@ -255,8 +260,21 @@ void BotMgr::Update(uint32 diff)
 
 void BotMgr::LogOutAll()
 {
+    if (_bots.empty())
+        return;
+
+    std::size_t count = _bots.size();
     for (auto& [guid, bot] : _bots)
         bot->LogOut();
 
     _bots.clear();
+
+    // The saves are queued, and closing the database at shutdown drops whatever is still queued:
+    // with hundreds of bots that would lose the last ones' progress. Wait until they are written.
+    uint32 start = getMSTime();
+    while (CharacterDatabase.QueueSize() > 0 && getMSTimeDiff(start, getMSTime()) < 120 * IN_MILLISECONDS)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    TC_LOG_INFO("module", "mod-bots: logged out {} bots; their saves took {} ms to write{}.", count,
+        getMSTimeDiff(start, getMSTime()), CharacterDatabase.QueueSize() > 0 ? " (gave up waiting)" : "");
 }

@@ -18,3 +18,33 @@
 #
 
 Bots.Enable = 1
+
+#
+#    Bots.Population.Count
+#        Description: How many bot characters the server creates and keeps online, half Alliance and
+#                     half Horde (an odd number is rounded down). Race and class follow the WotLK
+#                     census (bot_census), names come from bot_names. Characters are created once
+#                     and kept; lowering the number logs the extra bots out.
+#        Default:     1000
+#                     0    - No bot population (players can still log in their own alts as bots)
+#
+
+Bots.Population.Count = 1000
+
+#
+#    Bots.Population.LoginsPerSecond
+#        Description: How many bots log in per second until the population is online, so they don't
+#                     all load at once after a restart.
+#        Default:     10
+#
+
+Bots.Population.LoginsPerSecond = 10
+
+#
+#    Bots.Population.CharactersPerAccount
+#        Description: Bot characters per bot account (BOT0001, BOT0002, ...). At most 10, the
+#                     client's limit.
+#        Default:     10
+#
+
+Bots.Population.CharactersPerAccount = 10
