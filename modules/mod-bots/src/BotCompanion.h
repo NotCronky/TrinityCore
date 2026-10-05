@@ -6,6 +6,7 @@
 #define MOD_BOTS_BOT_COMPANION_H
 
 #include "Define.h"
+#include "ObjectGuid.h"
 #include "Optional.h"
 
 #include <string>
@@ -22,8 +23,9 @@ namespace BotCompanion
     // From the class and the talent tree with the most points.
     Role GetRole(Player* bot);
 
-    // Called on the world thread while maps are idle, every few hundred milliseconds.
-    void Update(Player* bot, Player* owner, bool staying);
+    // Called on the world thread while maps are idle, every few hundred milliseconds. pullTarget is a unit
+    // the owner sent the bot to attack (.bot pull); it is cleared once that unit can't be attacked.
+    void Update(Player* bot, Player* owner, bool staying, ObjectGuid& pullTarget);
 
     // Puts the best bag in each empty bag slot (adding the slots to givenBags) and tops food, and water for
     // mana users, up to a stack for the bot's level.

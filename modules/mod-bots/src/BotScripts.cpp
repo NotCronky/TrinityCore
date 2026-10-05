@@ -47,6 +47,7 @@ public:
             { "gear",      HandleGear,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "stay",      HandleStay,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "follow",    HandleFollow,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
+            { "pull",      HandlePull,      rbac::RBAC_ROLE_PLAYER, Console::No },
         };
 
         static ChatCommandTable commandTable =
@@ -118,6 +119,38 @@ public:
 
             handler->SendSysMessage(BotCompanion::Equip(player, tree));
         }
+
+        return true;
+    }
+
+    // .bot pull [name]: your tank bots (or the named bot) attack your target; the others join once it's a fight.
+    static bool HandlePull(ChatHandler* handler, Optional<std::string> who)
+    {
+        Unit* target = handler->getSelectedUnit();
+        Player* player = handler->GetSession()->GetPlayer();
+        if (!target || target == player || !player->IsValidAttackTarget(target))
+        {
+            handler->SendSysMessage("Target an enemy first.");
+            return true;
+        }
+
+        std::vector<std::string> sent;
+        for (Bot* bot : sBotMgr.FindBots(GetOwnerAccountId(handler), who.value_or("all")))
+        {
+            Player* botPlayer = bot->GetSession() ? bot->GetSession()->GetPlayer() : nullptr;
+            if (!botPlayer || (!who && BotCompanion::GetRole(botPlayer) != BotCompanion::Role::Tank))
+                continue;
+
+            bot->SetPullTarget(target->GetGUID());
+            sent.push_back(bot->GetName());
+        }
+
+        if (sent.empty())
+            handler->SendSysMessage(who ? Trinity::StringFormat("No bot of yours is called {}.", *who) :
+                std::string("None of your bots is a tank; use .bot pull <name> to send one."));
+        else
+            for (std::string const& name : sent)
+                handler->SendSysMessage(Trinity::StringFormat("{} is pulling {}.", name, target->GetName()));
 
         return true;
     }

@@ -19,9 +19,11 @@ A bot you add in game (`.bot add <alt>`) is your companion:
 - **Comes back to life** next to you once the fight is over, if it died.
 - **Eats and drinks** out of combat below 60% health or mana, and stays seated until full unless you
   walk more than 20 yards away.
-- **Tanks pick their own targets** (Protection warriors and paladins, Blood death knights): a mob hitting
-  someone else in the group first, nearest first, so their taunts can take it; then what they already
-  fight; then your target, also out of combat (they pull it). Other bots attack the tank's target.
+- **Nobody starts a fight on their own.** `.bot pull` sends your tank bots (Protection warriors and
+  paladins, Blood death knights) at your target; `.bot pull <name>` sends one bot, tank or not. The other
+  bots join in once you or a tank are fighting, on the tank's target.
+- **Tanks pick up loose mobs** in a fight: a mob hitting someone else in the group, nearest first, so
+  their taunts can take it.
 
 Every bot gets a Frostweave Bag (20 slots) in each empty bag slot and a stack of food, and of water if it
 uses mana, for its level when it logs in; companions are topped up every 30 seconds out of combat. An
@@ -78,6 +80,7 @@ and the average and worst world tick over the last minute.
 | `.bot list` | The bots you added and whether each is logging in, in the world or logging out. |
 | `.bot gear <name\|all> [spec]` | Class spells, talents in the spec, and gear for the bot's level. |
 | `.bot stay <name\|all>` / `.bot follow <name\|all>` | Companions stay put, or follow you again. |
+| `.bot pull [name]` | Your tank bots (or the named bot) attack your target. |
 
 - **In game, everyone can use them, but only for characters on their own account.** Nobody can log in,
   remove or see another account's characters as bots, game masters included.

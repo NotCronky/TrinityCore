@@ -41,6 +41,8 @@ public:
     void SetOwner(ObjectGuid owner) { _ownerGuid = owner; }
     ObjectGuid GetOwner() const { return _ownerGuid; }
     void SetStaying(bool staying) { _staying = staying; }
+    // Sends a companion to attack the unit (.bot pull).
+    void SetPullTarget(ObjectGuid target) { _pullTarget = target; }
     State GetState() const { return _state; }
     WorldSession* GetSession() const { return _session.get(); }
 
@@ -71,6 +73,7 @@ private:
     uint32 _ownerAccountId;
     ObjectGuid _ownerGuid;
     bool _staying = false;
+    ObjectGuid _pullTarget;
     bool _companionStarted = false;
     uint32 _companionTimerMs = 0;
     uint32 _suppliesTimerMs = 0;

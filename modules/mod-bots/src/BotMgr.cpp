@@ -231,7 +231,7 @@ bool Bot::Update(uint32 diff)
                 _companionStarted = true;
             }
 
-            BotCompanion::Update(player, owner, _staying);
+            BotCompanion::Update(player, owner, _staying, _pullTarget);
             break;
         }
     }

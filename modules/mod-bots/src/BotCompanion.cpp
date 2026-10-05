@@ -106,8 +106,9 @@ namespace
     }
 
     // Which unit a tank should fight: a mob hitting someone else in the group (nearest first, so its
-    // taunts can take it), what it already fights, or the owner's target, also out of combat (a pull).
-    Unit* PickTankTarget(Player* bot, Player* owner)
+    // taunts can take it), what it already fights, or what it was sent to pull. It never starts a fight
+    // on its own: the owner sends it with .bot pull.
+    Unit* PickTankTarget(Player* bot, Player* owner, Unit* pull)
     {
         auto valid = [bot](Unit* unit) { return unit && unit->IsAlive() && bot->IsValidAttackTarget(unit); };
 
@@ -128,8 +129,8 @@ namespace
         if (valid(bot->GetVictim()))
             return bot->GetVictim();
 
-        if (Unit* selected = owner->GetSelectedUnit(); valid(selected))
-            return selected;
+        if (valid(pull))
+            return pull;
 
         for (Unit* attacker : bot->getAttackers())
             if (valid(attacker))
@@ -294,7 +295,7 @@ namespace BotCompanion
         group->AddMember(bot);
     }
 
-    void Update(Player* bot, Player* owner, bool staying)
+    void Update(Player* bot, Player* owner, bool staying, ObjectGuid& pullTarget)
     {
         if (bot->IsBeingTeleported() || owner->IsBeingTeleported())
             return;
@@ -325,7 +326,17 @@ namespace BotCompanion
         Role role = GetRole(bot);
         MotionMaster* motion = bot->GetMotionMaster();
 
-        Unit* target = role == Role::Tank ? PickTankTarget(bot, owner) : PickTarget(bot, owner);
+        // A unit the owner sent the bot to attack, until it can't be attacked any more.
+        Unit* pull = pullTarget.IsEmpty() ? nullptr : ObjectAccessor::GetUnit(*bot, pullTarget);
+        if (!pull || !pull->IsAlive() || !bot->IsValidAttackTarget(pull))
+        {
+            pullTarget.Clear();
+            pull = nullptr;
+        }
+
+        Unit* target = role == Role::Tank ? PickTankTarget(bot, owner, pull) : PickTarget(bot, owner);
+        if (pull && !target)
+            target = pull;
         if (target && role != Role::Healer)
         {
             // mod-rotation-bot casts at the selected target.
