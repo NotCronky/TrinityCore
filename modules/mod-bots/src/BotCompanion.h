@@ -9,6 +9,7 @@
 #include "Optional.h"
 
 #include <string>
+#include <vector>
 
 class Player;
 
@@ -16,13 +17,20 @@ class Player;
 // (mod-rotation-bot picks their spells) and come back when they die or fall behind.
 namespace BotCompanion
 {
-    enum class Role : uint8 { Melee, Ranged, Healer };
+    enum class Role : uint8 { Tank, Melee, Ranged, Healer };
 
     // From the class and the talent tree with the most points.
     Role GetRole(Player* bot);
 
     // Called on the world thread while maps are idle, every few hundred milliseconds.
     void Update(Player* bot, Player* owner, bool staying);
+
+    // Puts the best bag in each empty bag slot (adding the slots to givenBags) and tops food, and water for
+    // mana users, up to a stack for the bot's level.
+    void GiveSupplies(Player* bot, std::vector<uint8>& givenBags);
+    // Takes back what GiveSupplies gave an alt: the bags (their contents are mailed to the character
+    // first), and all bot food and water.
+    void RemoveSupplies(Player* bot, std::vector<uint8> const& givenBags);
 
     // Joins the owner's group, making one when there is none.
     void JoinGroup(Player* bot, Player* owner);

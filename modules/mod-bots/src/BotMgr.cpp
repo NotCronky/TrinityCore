@@ -27,6 +27,7 @@ namespace
 {
     // How often a companion decides what to do.
     constexpr uint32 COMPANION_UPDATE_MS = 250;
+    constexpr uint32 SUPPLIES_UPDATE_MS = 30 * IN_MILLISECONDS;
 
     // A login that hasn't finished by then is given up.
     constexpr uint32 LOGIN_TIMEOUT_MS = 30 * IN_MILLISECONDS;
@@ -183,6 +184,7 @@ bool Bot::Update(uint32 diff)
                 // A client says which unit it moves once it is in the world; the server ignores the
                 // movement packets of a client that hasn't, such as the reply to a teleport.
                 SetActiveMover(player->GetGUID());
+                BotCompanion::GiveSupplies(player, _givenBags);
                 _state = State::InWorld;
                 TC_LOG_INFO("module", "mod-bots: {} is in the world.", _name);
                 break;
@@ -204,6 +206,14 @@ bool Bot::Update(uint32 diff)
 
             if (_ownerGuid.IsEmpty() || !player->IsInWorld())
                 break;
+
+            // Food and water are topped up now and then, out of combat.
+            _suppliesTimerMs += diff;
+            if (_suppliesTimerMs >= SUPPLIES_UPDATE_MS && !player->IsInCombat())
+            {
+                _suppliesTimerMs = 0;
+                BotCompanion::GiveSupplies(player, _givenBags);
+            }
 
             _companionTimerMs += diff;
             if (_companionTimerMs < COMPANION_UPDATE_MS)
@@ -236,10 +246,14 @@ void Bot::LogOut()
 
     if (Player* player = _session->GetPlayer())
     {
-        // A companion leaves its owner's group; the server's own bots never join one.
+        // A companion (a player's alt) leaves its owner's group and gives back the bags, food and water it
+        // was lent; the server's own bots keep theirs and never join a group.
         if (!_ownerGuid.IsEmpty())
+        {
+            BotCompanion::RemoveSupplies(player, _givenBags);
             if (Group* group = player->GetGroup())
                 group->RemoveMember(player->GetGUID());
+        }
 
         _session->LogoutPlayer(true);
     }

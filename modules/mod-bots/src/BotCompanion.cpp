@@ -8,6 +8,7 @@
 #include "DBCStores.h"
 #include "Group.h"
 #include "GroupMgr.h"
+#include "Bag.h"
 #include "Item.h"
 #include "Mail.h"
 #include "MotionMaster.h"
@@ -31,6 +32,42 @@ namespace
     // Further than this, or on another map, the bot is brought to its owner.
     constexpr float CATCH_UP_DISTANCE = 80.0f;
 
+    // Within this distance of the owner a bot sits down to eat and drink; further away it follows instead.
+    constexpr float EAT_DISTANCE = 20.0f;
+
+    constexpr uint32 BAG = 41599; // Frostweave Bag: 20 slots, no level requirement
+    constexpr uint32 SUPPLY_STACK = 20;
+
+    // Vendor food and water by required level, lowest first.
+    std::vector<uint32> const FOOD = { 4540, 4541, 4542, 4544, 4601, 8950, 27855, 29449, 35950 };
+    std::vector<uint32> const WATER = { 159, 1179, 1205, 1708, 1645, 8766, 28399, 27860, 33445 };
+
+    // The best item of the list the bot's level allows.
+    uint32 BestForLevel(Player* bot, std::vector<uint32> const& items)
+    {
+        uint32 best = 0;
+        for (uint32 entry : items)
+            if (ItemTemplate const* item = sObjectMgr->GetItemTemplate(entry); item && item->RequiredLevel <= bot->GetLevel())
+                best = entry;
+        return best;
+    }
+
+    // Eats or drinks the best item of the list it carries.
+    bool Consume(Player* bot, std::vector<uint32> const& items)
+    {
+        for (auto itr = items.rbegin(); itr != items.rend(); ++itr)
+        {
+            Item* item = bot->GetItemByEntry(*itr);
+            if (!item || bot->CanUseItem(item) != EQUIP_ERR_OK)
+                continue;
+
+            uint32 spellId = item->GetTemplate()->Effects[0].SpellID > 0 ? uint32(item->GetTemplate()->Effects[0].SpellID) : 0;
+            if (spellId && bot->CastSpell(bot, spellId, CastSpellExtraArgs(TRIGGERED_NONE).SetCastItem(item)) == SPELL_CAST_OK)
+                return true;
+        }
+        return false;
+    }
+
     // Talent tree names per class, in the client's tab order.
     std::unordered_map<uint8, std::array<char const*, 3>> const SPEC_NAMES =
     {
@@ -51,13 +88,69 @@ namespace
         return RotationProfiles::GetMainTree(bot).value_or(0);
     }
 
-    // Which unit the bot should fight: what its owner fights, or what is attacking the owner or the bot.
+    // The group members near the bot (the bot too), or just the owner and the bot without a group.
+    std::vector<Player*> GetParty(Player* bot, Player* owner)
+    {
+        std::vector<Player*> party;
+        if (Group* group = bot->GetGroup())
+        {
+            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
+                if (Player* member = itr->GetSource(); member && member->IsInWorld() && member->IsInMap(bot) &&
+                    member->IsAlive() && bot->IsWithinDistInMap(member, 60.0f))
+                    party.push_back(member);
+        }
+        else
+            party = { owner, bot };
+
+        return party;
+    }
+
+    // Which unit a tank should fight: a mob hitting someone else in the group (nearest first, so its
+    // taunts can take it), what it already fights, or the owner's target, also out of combat (a pull).
+    Unit* PickTankTarget(Player* bot, Player* owner)
+    {
+        auto valid = [bot](Unit* unit) { return unit && unit->IsAlive() && bot->IsValidAttackTarget(unit); };
+
+        Unit* loose = nullptr;
+        for (Player* member : GetParty(bot, owner))
+        {
+            if (member == bot)
+                continue;
+
+            for (Unit* attacker : member->getAttackers())
+                if (valid(attacker) && (!loose || bot->GetDistance(attacker) < bot->GetDistance(loose)))
+                    loose = attacker;
+        }
+
+        if (loose)
+            return loose;
+
+        if (valid(bot->GetVictim()))
+            return bot->GetVictim();
+
+        if (Unit* selected = owner->GetSelectedUnit(); valid(selected))
+            return selected;
+
+        for (Unit* attacker : bot->getAttackers())
+            if (valid(attacker))
+                return attacker;
+
+        return nullptr;
+    }
+
+    // Which unit the bot should fight: what its owner fights, what a tank of the group fights, or what is
+    // attacking the owner or the bot.
     Unit* PickTarget(Player* bot, Player* owner)
     {
         auto valid = [bot](Unit* unit) { return unit && unit->IsAlive() && bot->IsValidAttackTarget(unit); };
 
         if (valid(owner->GetVictim()))
             return owner->GetVictim();
+
+        for (Player* member : GetParty(bot, owner))
+            if (member != bot && member->IsInCombat() && BotCompanion::GetRole(member) == BotCompanion::Role::Tank &&
+                valid(member->GetVictim()))
+                return member->GetVictim();
 
         if (Unit* selected = owner->GetSelectedUnit(); valid(selected) && selected->IsInCombat() && owner->IsInCombat())
             return selected;
@@ -102,10 +195,14 @@ namespace BotCompanion
         uint8 tree = GetTree(bot);
         switch (bot->GetClass())
         {
-            case CLASS_WARRIOR: case CLASS_ROGUE: case CLASS_DEATH_KNIGHT:
+            case CLASS_WARRIOR:
+                return tree == 2 ? Role::Tank : Role::Melee;
+            case CLASS_DEATH_KNIGHT:
+                return tree == 0 ? Role::Tank : Role::Melee;
+            case CLASS_ROGUE:
                 return Role::Melee;
             case CLASS_PALADIN:
-                return tree == 0 ? Role::Healer : Role::Melee;
+                return tree == 0 ? Role::Healer : (tree == 1 ? Role::Tank : Role::Melee);
             case CLASS_PRIEST:
                 return tree == 2 ? Role::Ranged : Role::Healer;
             case CLASS_SHAMAN:
@@ -115,6 +212,63 @@ namespace BotCompanion
             default: // Hunter, mage, warlock
                 return Role::Ranged;
         }
+    }
+
+    void GiveSupplies(Player* bot, std::vector<uint8>& givenBags)
+    {
+        for (uint8 slot = INVENTORY_SLOT_BAG_START; slot < INVENTORY_SLOT_BAG_END; ++slot)
+        {
+            if (bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+                continue;
+
+            uint16 dest;
+            if (bot->CanEquipNewItem(slot, dest, BAG, false) == EQUIP_ERR_OK && bot->EquipNewItem(dest, BAG, true))
+                givenBags.push_back(slot);
+        }
+
+        uint32 food = BestForLevel(bot, FOOD);
+        if (food && bot->GetItemCount(food) < SUPPLY_STACK)
+            bot->AddItem(food, SUPPLY_STACK - bot->GetItemCount(food));
+
+        uint32 water = bot->GetPowerType() == POWER_MANA ? BestForLevel(bot, WATER) : 0;
+        if (water && bot->GetItemCount(water) < SUPPLY_STACK)
+            bot->AddItem(water, SUPPLY_STACK - bot->GetItemCount(water));
+    }
+
+    void RemoveSupplies(Player* bot, std::vector<uint8> const& givenBags)
+    {
+        for (uint8 slot : givenBags)
+        {
+            Item* bagItem = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+            if (!bagItem || bagItem->GetEntry() != BAG)
+                continue;
+
+            // Anything picked up into the bag is mailed to the character before the bag goes.
+            if (Bag* bag = bagItem->ToBag())
+            {
+                for (uint32 i = 0; i < bag->GetBagSize(); ++i)
+                {
+                    Item* item = bag->GetItemByPos(uint8(i));
+                    if (!item)
+                        continue;
+
+                    bot->MoveItemFromInventory(slot, uint8(i), true);
+                    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+                    item->DeleteFromInventoryDB(trans);
+                    item->SaveToDB(trans);
+                    MailDraft("Items from a bot bag", "These were in a bag the bot was lent.").AddItem(item).SendMailTo(trans, bot,
+                        MailSender(bot, MAIL_STATIONERY_GM), MAIL_CHECK_MASK_COPIED | MAIL_CHECK_MASK_NOT_RETURNABLE);
+                    CharacterDatabase.CommitTransaction(trans);
+                }
+            }
+
+            bot->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
+        }
+
+        for (std::vector<uint32> const* list : { &FOOD, &WATER })
+            for (uint32 entry : *list)
+                if (uint32 count = bot->GetItemCount(entry))
+                    bot->DestroyItemCount(entry, count, true);
     }
 
     void JoinGroup(Player* bot, Player* owner)
@@ -171,18 +325,20 @@ namespace BotCompanion
         Role role = GetRole(bot);
         MotionMaster* motion = bot->GetMotionMaster();
 
-        Unit* target = PickTarget(bot, owner);
+        Unit* target = role == Role::Tank ? PickTankTarget(bot, owner) : PickTarget(bot, owner);
         if (target && role != Role::Healer)
         {
             // mod-rotation-bot casts at the selected target.
             bot->SetSelection(target->GetGUID());
-            if (bot->GetVictim() != target)
-                bot->Attack(target, role == Role::Melee);
+            bool melee = role == Role::Melee || role == Role::Tank;
+            bool newTarget = bot->GetVictim() != target;
+            if (newTarget)
+                bot->Attack(target, melee);
 
-            if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE || bot->GetVictim() != target)
+            if (motion->GetCurrentMovementGeneratorType() != CHASE_MOTION_TYPE || newTarget)
             {
                 motion->Clear();
-                if (role == Role::Melee)
+                if (melee)
                     motion->MoveChase(target);
                 else
                     motion->MoveChase(target, RANGED_DISTANCE);
@@ -205,6 +361,25 @@ namespace BotCompanion
             if (motion->GetCurrentMovementGeneratorType() != IDLE_MOTION_TYPE)
                 motion->Clear();
             return;
+        }
+
+        // Out of combat: eat and drink below 60%, and stay seated until full unless the owner walks off.
+        if (!target && !bot->IsInCombat() && !owner->IsInCombat() && bot->GetDistance(owner) < EAT_DISTANCE)
+        {
+            bool usesMana = bot->GetPowerType() == POWER_MANA;
+            bool eating = bot->HasAuraType(SPELL_AURA_MOD_REGEN);
+            bool drinking = bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
+            if ((eating && bot->GetHealthPct() < 100.0f) || (drinking && usesMana && bot->GetPowerPct(POWER_MANA) < 100.0f))
+                return;
+
+            bool ate = !eating && bot->GetHealthPct() < 60.0f && Consume(bot, FOOD);
+            bool drank = !drinking && usesMana && bot->GetPowerPct(POWER_MANA) < 60.0f && Consume(bot, WATER);
+            if (ate || drank)
+            {
+                motion->Clear();
+                bot->StopMoving();
+                return;
+            }
         }
 
         if (motion->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE)
@@ -490,7 +665,8 @@ namespace BotCompanion
         uint8 chosen = tree.value_or(GetTree(bot));
         LearnClassSpells(bot);
         uint32 talents = SpendTalents(bot, chosen);
-        uint32 items = EquipGear(bot, GetRole(bot), chosen);
+        Role role = GetRole(bot);
+        uint32 items = EquipGear(bot, role == Role::Tank ? Role::Melee : role, chosen);
         bot->SaveToDB();
 
         return Trinity::StringFormat("{}: level {} {}, {} talent points, {} items equipped.", bot->GetName(), bot->GetLevel(),

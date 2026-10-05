@@ -73,6 +73,8 @@ private:
     bool _staying = false;
     bool _companionStarted = false;
     uint32 _companionTimerMs = 0;
+    uint32 _suppliesTimerMs = 0;
+    std::vector<uint8> _givenBags; // Bag slots filled with a lent bag, taken back from alts at logout
     State _state = State::RequestingCharacters;
     std::unique_ptr<WorldSession> _session;
     uint32 _loginTimeMs = 0;

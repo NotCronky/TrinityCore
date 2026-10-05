@@ -17,6 +17,17 @@ A bot you add in game (`.bot add <alt>`) is your companion:
   bots stand at the target, ranged bots 25 yards away, healers stay with you. Spells come from
   mod-rotation-bot, which must be built too (companions turn it on for themselves).
 - **Comes back to life** next to you once the fight is over, if it died.
+- **Eats and drinks** out of combat below 60% health or mana, and stays seated until full unless you
+  walk more than 20 yards away.
+- **Tanks pick their own targets** (Protection warriors and paladins, Blood death knights): a mob hitting
+  someone else in the group first, nearest first, so their taunts can take it; then what they already
+  fight; then your target, also out of combat (they pull it). Other bots attack the tank's target.
+
+Every bot gets a Frostweave Bag (20 slots) in each empty bag slot and a stack of food, and of water if it
+uses mana, for its level when it logs in; companions are topped up every 30 seconds out of combat. An
+alt gives the bags, food and water back when it logs out: anything in those bags is mailed to it first.
+That removes all vendor food and water of the kinds bots use from the alt, including any it bought
+itself.
 - `.bot stay <name|all>` keeps them where they are; `.bot follow <name|all>` brings them along again.
 
 `.bot gear <name|all> [spec]` gets a bot ready for its level: it learns the class spells a trainer would
