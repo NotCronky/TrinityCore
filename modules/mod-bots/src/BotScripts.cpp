@@ -202,8 +202,21 @@ public:
         return true;
     }
 
-    static bool HandlePopulation(ChatHandler* handler)
+    static bool HandlePopulation(ChatHandler* handler, Optional<EXACT_SEQUENCE("reset")> reset, Optional<EXACT_SEQUENCE("confirm")> confirm)
     {
+        if (reset)
+        {
+            if (!confirm)
+            {
+                handler->SendSysMessage("This deletes every one of the server's bot characters (not players' characters or "
+                    "alts) and makes the population again from level 1 with new names. Type .bot population reset confirm.");
+                return true;
+            }
+
+            handler->SendSysMessage(sBotPopulation.Reset());
+            return true;
+        }
+
         for (std::string const& line : sBotPopulation.Describe())
             handler->SendSysMessage(line);
 

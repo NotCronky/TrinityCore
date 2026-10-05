@@ -122,6 +122,11 @@ The server creates `Bots.Population.Count` bot characters (1000 by default) once
 - **Shutdown:** bots are logged out and the server waits until their saves are written, because closing
   the database drops queued saves.
 
+`.bot population reset confirm` (administrators and the console) starts the population over: every bot of
+the population logs out, their characters are deleted (players' characters and alts are never touched; the
+bot accounts are kept), and the population is made again from level 1 with fresh names, for the patch it
+follows. Without `confirm` it only says what it would do.
+
 `.bot population` (administrators and the console) shows the target, created and online bots per faction,
 the average and worst world tick over the last minute, and how many questing bots are doing what
 (fighting, hunting, travelling, dead...) and the busiest planned zones. `.bot info <name>` shows one bot:

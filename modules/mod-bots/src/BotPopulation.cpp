@@ -215,6 +215,57 @@ void BotPopulation::ResolvePatches()
     _patchesResolved = true;
 }
 
+std::string BotPopulation::Reset()
+{
+    if (_resetting)
+        return "The bot population is already being reset.";
+
+    if (_pendingCreations[FACTION_ALLIANCE] || _pendingCreations[FACTION_HORDE])
+        return "Bots are still being created; try again in a moment.";
+
+    _resetting = true;
+    uint32 online = 0;
+    for (auto const& [guid, faction] : _factionOf)
+        if (Bot* bot = sBotMgr.Find(guid))
+        {
+            bot->RequestRemoval();
+            ++online;
+        }
+
+    return Trinity::StringFormat("Resetting the bot population: {} bots are logging out, then all {} bot characters are "
+        "deleted and the population is made again from level 1.", online, _factionOf.size());
+}
+
+void BotPopulation::FinishReset()
+{
+    uint32 deleted = 0;
+    for (auto const& [guid, faction] : _factionOf)
+    {
+        CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(guid);
+        if (!character)
+            continue;
+
+        // Removes it everywhere, and from the name cache, so its name can be used again.
+        Player::DeleteFromDB(guid, character->AccountId, true, true);
+        ++deleted;
+    }
+
+    CharacterDatabase.DirectExecute("DELETE FROM `bot_characters`");
+    for (BotAccount& account : _accounts)
+        account.Characters = 0;
+
+    for (auto& bots : _bots)
+        bots.clear();
+    _factionOf.clear();
+    _info.clear();
+    _loggedIn.clear();
+    _outOfNames = false;
+    LoadNames();
+
+    _resetting = false;
+    TC_LOG_INFO("module", "mod-bots: reset the bot population: deleted {} characters; {} names free.", deleted, _names.size());
+}
+
 void BotPopulation::UpdateTargetPatch()
 {
     if (!sProgressionMgr.IsEnabled())
@@ -308,6 +359,17 @@ void BotPopulation::Update(uint32 diff)
 
     if (!_loaded || _shuttingDown)
         return;
+
+    // Resetting: once none of them is logged in any more, they are deleted and made again.
+    if (_resetting)
+    {
+        for (auto const& [guid, faction] : _factionOf)
+            if (sBotMgr.Find(guid))
+                return;
+
+        FinishReset();
+        return;
+    }
 
     _targetCheckMs = _targetCheckMs > diff ? _targetCheckMs - diff : 0;
     if (!_targetCheckMs)

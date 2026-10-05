@@ -37,6 +37,10 @@ public:
     void Shutdown() { _shuttingDown = true; }
 
     bool IsPopulationBot(ObjectGuid guid) const { return _factionOf.count(guid) != 0; }
+
+    // Logs every bot of the population out, deletes their characters, and lets the population be made
+    // again from scratch (level 1, new names). The bot accounts are kept. Returns what happens.
+    std::string Reset();
     // Status lines for ".bot population".
     std::vector<std::string> Describe() const;
 
@@ -86,6 +90,8 @@ private:
     uint32 _charactersPerAccount = 10;
 
     bool _loaded = false;
+    bool _resetting = false; // Waiting for the bots to log out before deleting them
+    void FinishReset();
     bool _shuttingDown = false;
 
     std::array<std::vector<CensusEntry>, FACTION_COUNT> _census;
