@@ -181,7 +181,8 @@ WorldSession::~WorldSession()
     while (_recvQueue.next(packet))
         delete packet;
 
-    LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = {};", GetAccountId());     // One-time query
+    if (!IsBot()) // MODULE HOOK: a bot may share an account with a player who is online
+        LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = {};", GetAccountId());     // One-time query
 }
 
 std::string const & WorldSession::GetPlayerName() const
@@ -206,7 +207,11 @@ void WorldSession::SendPacket(WorldPacket const* packet)
     ASSERT(packet->GetOpcode() != NULL_OPCODE);
 
     if (!m_Socket)
+    {
+        if (_botPacketHandler) // MODULE HOOK
+            _botPacketHandler(*packet);
         return;
+    }
 
 #ifdef TRINITY_DEBUG
     // Code for network use statistic
@@ -278,7 +283,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
     ///- Before we process anything:
     /// If necessary, kick the player because the client didn't send anything for too long
     /// (or they've been idling in character select)
-    if (IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION))
+    if (!IsBot() && IsConnectionIdle() && !HasPermission(rbac::RBAC_PERM_IGNORE_IDLE_CONNECTION)) // MODULE HOOK: bots have no socket
         m_Socket->CloseSocket();
 
     ///- Retrieve packets from the receive queue and call the appropriate handlers
@@ -292,7 +297,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 
     constexpr uint32 MAX_PROCESSED_PACKETS_IN_SAME_WORLDSESSION_UPDATE = 100;
 
-    while (m_Socket && _recvQueue.next(packet, updater))
+    while ((m_Socket || IsBot()) && _recvQueue.next(packet, updater)) // MODULE HOOK: bots queue packets too
     {
         OpcodeClient opcode = static_cast<OpcodeClient>(packet->GetOpcode());
         ClientOpcodeHandler const* opHandle = opcodeTable[opcode];
@@ -472,7 +477,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
             }
         }
 
-        if (!m_Socket)
+        if (!m_Socket && !IsBot()) // MODULE HOOK: a bot session is owned and removed by its module
             return false;                                       //Will remove this session from the world session map
     }
 
@@ -635,6 +640,11 @@ void WorldSession::KickPlayer(std::string const& reason)
             _player ? _player->GetGUID().ToString() : "", reason);
 
         m_Socket->CloseSocket();
+        forceExit = true;
+    }
+    else if (IsBot()) // MODULE HOOK: the module owning the bot session logs it out
+    {
+        TC_LOG_INFO("network.kick", "Account: {} Bot character: '{}' kicked with reason: {}", GetAccountId(), _player ? _player->GetName() : "<none>", reason);
         forceExit = true;
     }
 }

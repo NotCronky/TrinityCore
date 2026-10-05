@@ -32,6 +32,7 @@
 #include "Packet.h"
 #include "SharedDefines.h"
 #include <boost/circular_buffer_fwd.hpp>
+#include <functional>
 #include <string>
 #include <map>
 #include <memory>
@@ -539,6 +540,13 @@ class TC_GAME_API WorldSession
         void static WriteMovementInfo(WorldPacket* data, MovementInfo* mi);
 
         void SendPacket(WorldPacket const* packet);
+
+        // MODULE HOOK: bot sessions have no socket. Packets sent to them go to this handler instead, from
+        // whichever thread sends them, and packets they queue with QueuePacket are processed like a client's.
+        void SetBotPacketHandler(std::function<void(WorldPacket const&)> handler) { _botPacketHandler = std::move(handler); }
+        bool IsBot() const { return bool(_botPacketHandler); }
+        // MODULE HOOK: set by KickPlayer; a bot session's owner logs it out
+        bool IsForcedExit() const { return forceExit; }
         void SendNotification(const char *format, ...) ATTR_PRINTF(2, 3);
         void SendNotification(uint32 string_id, ...);
         void SendPetNameInvalid(uint32 error, std::string const& name, DeclinedName *declinedName);
@@ -1353,6 +1361,7 @@ class TC_GAME_API WorldSession
         rbac::RBACData* _RBACData;
         uint32 expireTime;
         bool forceExit;
+        std::function<void(WorldPacket const&)> _botPacketHandler; // MODULE HOOK
         ObjectGuid m_currentBankerGUID;
 
         std::unique_ptr<boost::circular_buffer<std::pair<int64, uint32>>> _timeSyncClockDeltaQueue; // first member: clockDelta. Second member: latency of the packet exchange that was used to compute that clockDelta.

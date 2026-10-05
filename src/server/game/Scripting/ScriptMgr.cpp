@@ -1992,6 +1992,16 @@ void ScriptMgr::OnPlayerAfterUpdate(Player* player, uint32 diff)
     FOREACH_SCRIPT(PlayerScript)->OnAfterUpdate(player, diff);
 }
 
+// MODULE HOOK
+bool ScriptMgr::CanPlayerLogin(WorldSession* session, ObjectGuid guid)
+{
+    FOR_SCRIPTS_RET(PlayerScript, itr, end, true)
+        if (!itr->second->CanLogin(session, guid))
+            return false;
+
+    return true;
+}
+
 // Account
 void ScriptMgr::OnAccountLogin(uint32 accountId)
 {
@@ -2714,6 +2724,11 @@ void PlayerScript::OnMovieComplete(Player* /*player*/, uint32 /*movieId*/)
 
 void PlayerScript::OnAfterUpdate(Player* /*player*/, uint32 /*diff*/)
 {
+}
+
+bool PlayerScript::CanLogin(WorldSession* /*session*/, ObjectGuid /*guid*/)
+{
+    return true;
 }
 
 AccountScript::AccountScript(char const* name)

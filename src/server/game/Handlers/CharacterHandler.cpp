@@ -704,6 +704,16 @@ void WorldSession::HandlePlayerLoginOpcode(WorldPacket& recvData)
         return;
     }
 
+    // MODULE HOOK: e.g. the character is online as a bot
+    if (!sScriptMgr->CanPlayerLogin(this, playerGuid))
+    {
+        m_playerLoading = false;
+        WorldPacket data(SMSG_CHARACTER_LOGIN_FAILED, 1);
+        data << uint8(CHAR_LOGIN_DUPLICATE_CHARACTER);
+        SendPacket(&data);
+        return;
+    }
+
     std::shared_ptr<LoginQueryHolder> holder = std::make_shared<LoginQueryHolder>(GetAccountId(), playerGuid);
     if (!holder->Initialize())
     {

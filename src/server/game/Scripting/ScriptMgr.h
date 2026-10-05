@@ -724,6 +724,9 @@ class TC_GAME_API PlayerScript : public ScriptObject
         // MODULE HOOK: Called at the end of every Player::Update, by the thread updating the player's map
         virtual void OnAfterUpdate(Player* player, uint32 diff);
 
+        // MODULE HOOK: Called before a session loads a character to log it in; return false to refuse
+        virtual bool CanLogin(WorldSession* session, ObjectGuid guid);
+
 };
 
 class TC_GAME_API AccountScript : public ScriptObject
@@ -1040,6 +1043,7 @@ class TC_GAME_API ScriptMgr
         void OnMovieComplete(Player* player, uint32 movieId);
         void OnPlayerRepop(Player* player);
         void OnPlayerAfterUpdate(Player* player, uint32 diff); // MODULE HOOK
+        bool CanPlayerLogin(WorldSession* session, ObjectGuid guid); // MODULE HOOK
 
     public: /* AccountScript */
 
