@@ -98,6 +98,28 @@ private:
     // Created characters (saved), by faction, and every bot's faction.
     std::array<std::vector<ObjectGuid>, FACTION_COUNT> _bots;
     std::unordered_map<ObjectGuid, Faction> _factionOf;
+
+    // With mod-progression: each bot's race, class and patch (progression_patch id; it only goes up), and
+    // the patch the online bots follow: the one most online players are in.
+    struct BotInfo
+    {
+        uint8 Race = 0;
+        uint8 Class = 0;
+        uint8 Patch = 0;
+        uint32 PatchQuest = 0; // As loaded; turned into Patch once mod-progression has its patches
+    };
+    bool _patchesResolved = false;
+    void ResolvePatches();
+    std::unordered_map<ObjectGuid, BotInfo> _info;
+    uint8 _targetPatch = 0; // 0: patches are ignored (mod-progression off)
+    uint32 _targetCheckMs = 0;
+
+    void UpdateTargetPatch();
+    // Whether the bot can be online for the target patch: its race and class existed by then, and it
+    // isn't in a later patch already.
+    bool IsEligible(ObjectGuid guid) const;
+    // Online bots behind the target patch move up to it.
+    void AdvanceOnlineBots();
     std::array<uint32, FACTION_COUNT> _pendingCreations = { };
     AsyncCallbackProcessor<TransactionCallback> _saveCallbacks;
     bool _outOfNames = false;

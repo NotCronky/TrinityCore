@@ -108,6 +108,12 @@ The server creates `Bots.Population.Count` bot characters (1000 by default) once
 - **Level 1**, in their race's starting zone, except Death Knights: level 55 in Acherus, as on live.
   mod-progression gives each its starting patch (1.1; 2.0 for Blood Elves and Draenei; 3.0 for Death
   Knights).
+- **Bots follow the players' patch** (with mod-progression): the online bots are the ones that can exist in
+  the patch most online players are in (with nobody online, the last one; at first `Progression.StartPatch`).
+  A bot's race and class must exist by then (Blood Elves and Draenei from 2.0, Death Knights from 3.0) and
+  its own patch must not be later; bots never go back, and those behind move up to it once online. Bots
+  that don't fit log out, and when too few fit, more characters are made from the races and classes of
+  that patch (the census without the others); the rest wait offline for later patches.
 - **Names** come from `bot_names` (built by `tools/bot_names.py`), skipping names already taken.
 - **Accounts:** `BOT0001`, `BOT0002`, ... with `Bots.Population.CharactersPerAccount` characters each and
   random passwords. They are listed in `bot_accounts` and `bot_characters` (characters database).

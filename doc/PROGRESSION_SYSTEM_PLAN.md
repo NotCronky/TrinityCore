@@ -280,7 +280,7 @@ Most of the work is **data**, and Vanilla is the biggest part:
 | 1 | Module skeleton, `progression_patch` / `character_progression`, hidden quests, starting patches per race and class, `.patch` commands with confirmation, level cap via `OnGiveXP` |
 | 2 | Map and instance gating (`access_requirement` plus the map-entry hook), BG and dungeon finder filtering |
 | 3 | `progression_content` plus the visibility hook. Vendor and loot conditions. "Keeper of Time" NPC |
-| 4 | Bot integration: bot patch, following the logged-in character, warm pools per patch, census renormalisation, AH filtering by patch |
+| 4 | Bot integration: bot patch, following the logged-in character, warm pools per patch, census renormalisation, AH filtering by patch. **Done (2026-10-06)** except the AH (no bot AH yet) and splitting the population between players in different patches (it follows the patch most online players are in). |
 | 5 | Vanilla 1.1–1.12 content restoration (Onyxia 60, MC, BWL, ZG, AQ, Naxx 40, Vanilla AV, PvP ranks) |
 | 6 | TBC 2.0–2.4 restoration (attunements, keys, raid tuning, Quel'Danas) |
 | 7 | WotLK 3.0–3.3.5 patch-specific content (Argent Tournament, Dalaran changes, Onyxia 80, ICC) |

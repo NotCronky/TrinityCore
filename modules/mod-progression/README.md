@@ -3,8 +3,9 @@
 Each character plays in a patch of its own, from Vanilla 1.1 to WotLK 3.3.5, and moves to the next one
 when the player chooses. The full design is in [doc/PROGRESSION_SYSTEM_PLAN.md](../../doc/PROGRESSION_SYSTEM_PLAN.md).
 
-Status: **phase 2**. Characters have a patch and a level cap, players move through the patches with
-`.patch`, and maps from later patches are closed. Quests, NPCs, vendors and loot by patch are phase 3.
+Status: **phases 1, 2 and 4**. Characters have a patch and a level cap, players move through the patches
+with `.patch`, maps from later patches are closed, and mod-bots' population follows the online players'
+patch (see mod-bots). Quests, NPCs, vendors and loot by patch are phase 3.
 
 ## What it does now
 

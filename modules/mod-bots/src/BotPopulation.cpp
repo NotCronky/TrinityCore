@@ -5,6 +5,7 @@
 #include "BotPopulation.h"
 #include "BotMgr.h"
 #include "BotQuesting.h"
+#include "ProgressionMgr.h" // mod-progression: bots follow the players' patch
 
 #include "AccountMgr.h"
 #include "CharacterCache.h"
@@ -27,6 +28,9 @@
 
 namespace
 {
+    // How often the patch the bots follow is checked, and online bots behind it move up.
+    constexpr uint32 TARGET_CHECK_MS = 10 * IN_MILLISECONDS;
+
     // Characters created per world tick while the population is being built.
     constexpr uint32 CREATIONS_PER_TICK = 10;
 
@@ -170,17 +174,123 @@ void BotPopulation::LoadBots()
         } while (result->NextRow());
     }
 
-    if (QueryResult result = CharacterDatabase.Query("SELECT b.`guid`, c.`race` FROM `bot_characters` b "
-        "JOIN `characters` c ON c.`guid` = b.`guid`"))
+    // With their patch: the hidden patch quest mod-progression gives each character.
+    if (QueryResult result = CharacterDatabase.Query("SELECT b.`guid`, c.`race`, c.`class`, "
+        "(SELECT MAX(q.`quest`) FROM `character_queststatus_rewarded` q WHERE q.`guid` = b.`guid` AND q.`quest` BETWEEN 90001 AND 90099) "
+        "FROM `bot_characters` b JOIN `characters` c ON c.`guid` = b.`guid`"))
     {
         do
         {
             Field* fields = result->Fetch();
             ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>(fields[0].GetUInt32());
-            Faction faction = Player::TeamForRace(fields[1].GetUInt8()) == ALLIANCE ? FACTION_ALLIANCE : FACTION_HORDE;
+            BotInfo info;
+            info.Race = fields[1].GetUInt8();
+            info.Class = fields[2].GetUInt8();
+            info.PatchQuest = fields[3].IsNull() ? 0 : fields[3].GetUInt32();
+
+            Faction faction = Player::TeamForRace(info.Race) == ALLIANCE ? FACTION_ALLIANCE : FACTION_HORDE;
             _bots[faction].push_back(guid);
             _factionOf[guid] = faction;
+            _info[guid] = info;
         } while (result->NextRow());
+    }
+}
+
+void BotPopulation::ResolvePatches()
+{
+    // mod-progression loads its patches at startup after mod-bots, so bots' patch quests are read here.
+    for (auto& [guid, info] : _info)
+    {
+        if (info.Patch)
+            continue;
+
+        for (ProgressionPatch const& patch : sProgressionMgr.GetPatches())
+            if (patch.QuestId == info.PatchQuest)
+                info.Patch = patch.Id;
+
+        if (!info.Patch)
+            if (ProgressionPatch const* start = sProgressionMgr.GetStartPatch(info.Race, info.Class))
+                info.Patch = start->Id;
+    }
+    _patchesResolved = true;
+}
+
+void BotPopulation::UpdateTargetPatch()
+{
+    if (!sProgressionMgr.IsEnabled())
+    {
+        _targetPatch = 0;
+        return;
+    }
+
+    // The patch most online players are in; with nobody online, the one it had (at first, the start patch).
+    std::unordered_map<uint8, uint32> players;
+    for (auto const& [accountId, session] : sWorld->GetAllSessions())
+        if (Player* player = session->GetPlayer(); player && player->IsInWorld() && !session->IsBot())
+            if (ProgressionPatch const* patch = sProgressionMgr.GetEffectivePatch(player))
+                ++players[patch->Id];
+
+    uint8 target = _targetPatch;
+    uint32 most = 0;
+    for (auto const& [patchId, count] : players)
+        if (count > most || (count == most && patchId < target))
+        {
+            target = patchId;
+            most = count;
+        }
+
+    if (!target)
+        if (ProgressionPatch const* start = sProgressionMgr.GetStartPatch(RACE_HUMAN, CLASS_WARRIOR))
+            target = start->Id;
+
+    if (target != _targetPatch)
+    {
+        if (ProgressionPatch const* patch = sProgressionMgr.GetPatch(target))
+            TC_LOG_INFO("module", "mod-bots: the bot population follows patch {}.", patch->Version);
+        _targetPatch = target;
+    }
+}
+
+bool BotPopulation::IsEligible(ObjectGuid guid) const
+{
+    if (!_targetPatch)
+        return true;
+
+    auto itr = _info.find(guid);
+    if (itr == _info.end())
+        return false;
+
+    ProgressionPatch const* start = sProgressionMgr.GetStartPatch(itr->second.Race, itr->second.Class);
+    return start && start->Id <= _targetPatch && itr->second.Patch <= _targetPatch;
+}
+
+void BotPopulation::AdvanceOnlineBots()
+{
+    if (!_targetPatch)
+        return;
+
+    ProgressionPatch const* target = sProgressionMgr.GetPatch(_targetPatch);
+    if (!target)
+        return;
+
+    for (auto& [guid, info] : _info)
+    {
+        if (info.Patch >= _targetPatch)
+            continue;
+
+        Bot* bot = sBotMgr.Find(guid);
+        Player* player = bot && bot->GetSession() ? bot->GetSession()->GetPlayer() : nullptr;
+        if (!player || !player->IsInWorld())
+            continue;
+
+        // mod-progression gives a new character its start patch on its first login; then it moves up.
+        ProgressionPatch const* current = sProgressionMgr.GetCharacterPatch(player);
+        if (!current)
+            continue;
+
+        if (current->Id < _targetPatch)
+            sProgressionMgr.SetCharacterPatch(player, *target);
+        info.Patch = std::max(current->Id, _targetPatch);
     }
 }
 
@@ -199,6 +309,16 @@ void BotPopulation::Update(uint32 diff)
     if (!_loaded || _shuttingDown)
         return;
 
+    _targetCheckMs = _targetCheckMs > diff ? _targetCheckMs - diff : 0;
+    if (!_targetCheckMs)
+    {
+        _targetCheckMs = TARGET_CHECK_MS;
+        if (sProgressionMgr.IsEnabled() && !_patchesResolved)
+            ResolvePatches();
+        UpdateTargetPatch();
+        AdvanceOnlineBots();
+    }
+
     CreateCharacters();
     LogOutExtraBots();
     LogInBots(diff);
@@ -206,11 +326,18 @@ void BotPopulation::Update(uint32 diff)
 
 void BotPopulation::CreateCharacters()
 {
+    // Enough bots that can be online for the patch the population follows; more characters are made when
+    // races or classes that don't exist yet leave too few (the others wait for later patches).
     uint32 target = GetTargetPerFaction();
+    std::array<uint32, FACTION_COUNT> eligible = { };
+    for (uint8 faction = 0; faction < FACTION_COUNT; ++faction)
+        for (ObjectGuid guid : _bots[faction])
+            eligible[faction] += IsEligible(guid);
+
     for (uint32 i = 0; i < CREATIONS_PER_TICK && !_outOfNames; ++i)
     {
-        uint32 alliance = _bots[FACTION_ALLIANCE].size() + _pendingCreations[FACTION_ALLIANCE];
-        uint32 horde = _bots[FACTION_HORDE].size() + _pendingCreations[FACTION_HORDE];
+        uint32 alliance = eligible[FACTION_ALLIANCE] + _pendingCreations[FACTION_ALLIANCE];
+        uint32 horde = eligible[FACTION_HORDE] + _pendingCreations[FACTION_HORDE];
         if (alliance >= target && horde >= target)
             break;
 
@@ -232,10 +359,29 @@ bool BotPopulation::CreateCharacter(Faction faction)
 
     WorldPackets::Character::CharacterCreateInfo info;
 
-    // Race and class by the census weights of the faction.
-    uint64 roll = urand(0, uint32(_censusTotal[faction] - 1));
+    // Race and class by the census weights of the faction, among those that exist in the patch the
+    // population follows (the weights of the others are left out, so the rest keep their proportions).
+    auto exists = [this](CensusEntry const& entry)
+    {
+        if (!_targetPatch)
+            return true;
+        ProgressionPatch const* start = sProgressionMgr.GetStartPatch(entry.Race, entry.Class);
+        return start && start->Id <= _targetPatch;
+    };
+
+    uint64 total = 0;
+    for (CensusEntry const& entry : _census[faction])
+        if (exists(entry))
+            total += entry.Weight;
+    if (!total)
+        return false;
+
+    uint64 roll = urand(0, uint32(total - 1));
     for (CensusEntry const& entry : _census[faction])
     {
+        if (!exists(entry))
+            continue;
+
         if (roll < entry.Weight)
         {
             info.Race = entry.Race;
@@ -308,6 +454,12 @@ bool BotPopulation::CreateCharacter(Faction faction)
             player->GetRace(), player->GetClass(), player->GetLevel());
         _bots[faction].push_back(player->GetGUID());
         _factionOf[player->GetGUID()] = faction;
+
+        BotInfo& botInfo = _info[player->GetGUID()];
+        botInfo.Race = player->GetRace();
+        botInfo.Class = player->GetClass();
+        if (ProgressionPatch const* start = sProgressionMgr.GetStartPatch(botInfo.Race, botInfo.Class))
+            botInfo.Patch = start->Id;
     });
 
     return true;
@@ -387,7 +539,7 @@ void BotPopulation::LogInBots(uint32 diff)
     std::array<uint32, FACTION_COUNT> online = { };
     for (uint8 faction = 0; faction < FACTION_COUNT; ++faction)
         for (ObjectGuid guid : _bots[faction])
-            if (sBotMgr.Find(guid))
+            if (sBotMgr.Find(guid) && IsEligible(guid))
                 ++online[faction];
 
     uint32 target = GetTargetPerFaction();
@@ -414,7 +566,7 @@ void BotPopulation::LogInBots(uint32 diff)
         for (std::size_t i = 0; i < bots.size() && !loggedIn; ++i)
         {
             ObjectGuid guid = bots[(start + i) % bots.size()];
-            if (sBotMgr.Find(guid))
+            if (sBotMgr.Find(guid) || !IsEligible(guid))
                 continue;
 
             if (sBotMgr.Add(guid, 0).empty())
@@ -444,7 +596,8 @@ void BotPopulation::LogOutExtraBots()
             if (!bot || bot->IsRemovalRequested() || !_loggedIn.count(guid))
                 continue;
 
-            if (++online > target)
+            // Not for this patch (a later one, or a race or class that doesn't exist yet), or too many.
+            if (!IsEligible(guid) || ++online > target)
             {
                 bot->RequestRemoval();
                 _loggedIn.erase(guid);
@@ -504,6 +657,15 @@ std::vector<std::string> BotPopulation::Describe() const
     std::vector<std::string> lines;
     lines.push_back(Trinity::StringFormat("Bot population: target {} ({} per faction), {} bot accounts, {} unused names.",
         GetTargetPerFaction() * 2, GetTargetPerFaction(), _accounts.size(), _names.size()));
+    if (ProgressionPatch const* patch = _targetPatch ? sProgressionMgr.GetPatch(_targetPatch) : nullptr)
+    {
+        uint32 eligible = 0;
+        for (uint8 faction = 0; faction < FACTION_COUNT; ++faction)
+            for (ObjectGuid guid : _bots[faction])
+                eligible += IsEligible(guid);
+        lines.push_back(Trinity::StringFormat("Following patch {} (the online players'): {} characters can be online in it.",
+            patch->Title(), eligible));
+    }
     lines.push_back(Trinity::StringFormat("Created: {} Alliance, {} Horde ({} being saved).", _bots[FACTION_ALLIANCE].size(),
         _bots[FACTION_HORDE].size(), _pendingCreations[FACTION_ALLIANCE] + _pendingCreations[FACTION_HORDE]));
     lines.push_back(Trinity::StringFormat("Online: {} Alliance, {} Horde; logging in: {}.", online[FACTION_ALLIANCE],
