@@ -1,0 +1,74 @@
+# Warlock, levelling. Used by every warlock until a spec profile applies: warlock_affliction.yml
+# (Unstable Affliction), warlock_demonology.yml (Soul Link) or warlock_destruction.yml
+# (Conflagrate). Spells you haven't learned yet are skipped, so it works from level 1.
+#
+# Spells with a cast time and channels wait until you stand still. Soul shards are checked by the
+# server, so a summon that needs one is skipped without it.
+
+name: Warlock Levelling
+class: warlock
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Summon Voidwalker
+      on: self
+      if: not pet.exists
+
+    - cast: Summon Imp
+      on: self
+      if: not pet.exists
+
+    - cast: Fel Armor
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+    - cast: Demon Armor
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+    - cast: Demon Skin
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Death Coil
+      if: player.health_pct < 30 and target.dr("Death Coil") == 0
+
+    - cast: Health Funnel
+      on: pet
+      if: pet.health_pct < 30 and player.health_pct > 60
+
+    - cast: Drain Life
+      if: player.health_pct < 40
+
+  pve_aoe:
+    # Ground-targeted: lands at the target's feet. Channelled.
+    - cast: Rain of Fire
+      if: target.enemies(8) >= 3
+
+  pve_st:
+    # Mana from health.
+    - cast: Life Tap
+      on: self
+      if: player.power_pct < 25 and player.health_pct > 60
+
+    - cast: Curse of Agony
+      if: not target.my_aura("Curse of Agony", "Curse of the Elements", "Curse of Doom", "Curse of Tongues", "Curse of Weakness", "Curse of Exhaustion") and target.health_pct > 30
+
+    - cast: Corruption
+      if: target.my_aura("Corruption").remains < 1 and target.health_pct > 25
+
+    - cast: Immolate
+      if: target.my_aura("Immolate").remains < 2 and target.health_pct > 30
+
+    # Gives a soul shard when the target dies during it.
+    - cast: Drain Soul
+      if: target.health_pct < 15
+
+    - cast: Shadow Bolt

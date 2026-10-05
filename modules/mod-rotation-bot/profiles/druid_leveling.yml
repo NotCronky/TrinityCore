@@ -1,0 +1,75 @@
+# Druid, levelling. Used by every druid until a spec profile applies: druid_balance.yml (Moonkin
+# Form), druid_feral.yml (Mangle (Cat)) or druid_restoration.yml (Swiftmend). Spells you haven't
+# learned yet are skipped, so it works from level 1.
+#
+# One list for both caster and Cat Form: the server only allows each spell in its own form, so
+# the caster spells run in caster form and the cat abilities in Cat Form. It never shifts you.
+# No bear (tank) abilities.
+
+name: Druid Levelling
+class: druid
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    # Caster form only; in a form the server refuses it, so it never shifts you out.
+    - cast: Mark of the Wild
+      on: self
+      if: not player.aura("Mark of the Wild", "Gift of the Wild")
+
+    - cast: Thorns
+      on: self
+      if: not player.aura("Thorns")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Barkskin
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1
+
+    # Caster form only.
+    - cast: Rejuvenation
+      on: self
+      if: player.health_pct < 60 and not player.my_aura("Rejuvenation")
+
+    - cast: Healing Touch
+      on: self
+      if: player.health_pct < 35
+
+  pve_aoe:
+    - cast: Swipe (Cat)
+
+  pve_st:
+    # Cat Form.
+    - cast: Savage Roar
+      on: self
+      if: player.combo_points >= 1 and player.my_aura("Savage Roar").remains < 1
+
+    - cast: Rip
+      if: player.combo_points >= 5 and target.my_aura("Rip").remains < 1 and target.health_pct > 30
+
+    - cast: Ferocious Bite
+      if: player.combo_points >= 5
+
+    - cast: Rake
+      if: target.my_aura("Rake").remains < 1 and target.health_pct > 25
+
+    - cast: Mangle (Cat)
+    - cast: Claw
+
+    # Caster form.
+    - cast: Faerie Fire
+      if: not target.aura("Faerie Fire", "Faerie Fire (Feral)", "Sunder Armor", "Expose Armor")
+
+    - cast: Moonfire
+      if: target.my_aura("Moonfire").remains < 1 and target.health_pct > 25
+
+    - cast: Insect Swarm
+      if: target.my_aura("Insect Swarm").remains < 1 and target.health_pct > 25
+
+    - cast: Wrath

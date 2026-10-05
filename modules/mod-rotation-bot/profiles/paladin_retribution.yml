@@ -1,0 +1,129 @@
+# Paladin, Retribution. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Crusader Strike. It has no pvp list, so PvP uses the PvE lists; the PvP
+# parts (trinket, freedom, Hammer of Justice on healers) are in defensives and interrupts.
+
+name: Paladin Retribution
+class: paladin
+requires: Crusader Strike
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    - cast: Retribution Aura
+      on: self
+      if: not player.my_aura("Retribution Aura", "Devotion Aura", "Concentration Aura", "Crusader Aura")
+
+    # Seal of Vengeance (Alliance) or Seal of Corruption (Horde), whichever you know; Seal of
+    # Command before you have either.
+    - cast: Seal of Vengeance
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Corruption
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Command
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Blessing of Might
+      on: self
+      if: not player.aura("Blessing of Might", "Greater Blessing of Might", "Blessing of Kings", "Greater Blessing of Kings")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Hand of Freedom
+      on: self
+      if: pvp and player.rooted
+
+    - cast: Lay on Hands
+      on: self
+      if: player.health_pct < 15 and not player.aura("Forbearance")
+
+    - cast: Divine Shield
+      on: self
+      if: player.health_pct < 20 and not player.aura("Forbearance")
+
+    - cast: Divine Protection
+      on: self
+      if: player.health_pct < 35 and not player.aura("Forbearance")
+
+    # The Art of War makes Flash of Light instant.
+    - cast: Flash of Light
+      on: self
+      if: player.health_pct < 60 and player.aura("The Art of War")
+
+    - cast: Cleanse
+      on: self
+      if: pvp and player.dispellable("magic") + player.dispellable("poison") + player.dispellable("disease") >= 1
+
+  # Waits for the reaction delay. Hammer of Justice is skipped when diminishing returns would make
+  # the target immune.
+  interrupts:
+    - cast: Hammer of Justice
+      if: target.casting and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Hammer of Justice
+      on: enemy_players
+      if: unit.casting and (unit.cast_heal or unit.cast_cc) and unit.dr("Hammer of Justice") == 0
+
+  pve_aoe:
+    - cast: Divine Storm
+
+    - cast: Consecration
+      if: target.in_melee
+
+  pve_st:
+    - cast: Seal of Vengeance
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Corruption
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Command
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Avenging Wrath
+      on: self
+      if: burst and not player.aura("Forbearance") and (target.is_boss or target.is_player)
+
+    # Judgement of Wisdom when mana runs low, Judgement of Light otherwise.
+    - cast: Judgement of Wisdom
+      if: player.power_pct < 40
+
+    - cast: Judgement of Light
+
+    # The server only allows it below 20%.
+    - cast: Hammer of Wrath
+
+    - cast: Crusader Strike
+
+    - cast: Divine Storm
+      if: target.in_melee
+
+    - cast: Consecration
+      if: target.in_melee and player.power_pct > 30
+
+    # Instant with The Art of War; without it the cast time isn't worth it.
+    - cast: Exorcism
+      if: player.aura("The Art of War")
+
+    - cast: Divine Plea
+      on: self
+      if: player.power_pct < 40

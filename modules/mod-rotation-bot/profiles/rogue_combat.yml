@@ -1,0 +1,83 @@
+# Rogue, Combat. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Blade Flurry. Poisons aren't applied for you. Openers need stealth: press
+# ".rot next" from stealth.
+
+name: Rogue Combat
+class: rogue
+requires: Blade Flurry
+priority: 10
+auto_attack: true
+aoe_enemies: 2
+aoe_radius: 8
+
+lists:
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Cloak of Shadows
+      on: self
+      if: player.dispellable("magic") >= 1 and (pvp or player.health_pct < 50)
+
+    - cast: Evasion
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1
+
+    - cast: Kidney Shot
+      if: pvp and player.health_pct < 35 and player.combo_points >= 3 and target.dr("Kidney Shot") == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Kick
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Kick
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  # Blade Flurry hits a second target with every swing and ability.
+  pve_aoe:
+    - cast: Blade Flurry
+      on: self
+
+    - cast: Fan of Knives
+      if: enemies(8) >= 4
+
+  pve_st:
+    - cast: Cheap Shot
+      if: pvp
+
+    - cast: Ambush
+    - cast: Garrote
+
+    - cast: Slice and Dice
+      on: self
+      if: player.combo_points >= 1 and player.my_aura("Slice and Dice").remains < 1
+
+    - cast: Adrenaline Rush
+      on: self
+      if: burst and player.power < 40
+
+    # Teleports you between enemies for a few seconds and leaves you next to the last one.
+    - cast: Killing Spree
+      if: burst and player.power < 40
+
+    - cast: Rupture
+      if: player.combo_points >= 5 and target.my_aura("Rupture").remains < 1 and target.is_boss
+
+    - cast: Eviscerate
+      if: player.combo_points >= 5
+
+    - cast: Tricks of the Trade
+      on: party
+      if: unit.most_attacked and burst
+
+    - cast: Riposte
+    - cast: Sinister Strike

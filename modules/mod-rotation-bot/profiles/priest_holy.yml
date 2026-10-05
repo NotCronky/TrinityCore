@@ -1,0 +1,114 @@
+# Priest, Holy (healer). The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once most of your talent points are in Holy, from level 10. Heals go to your group ("on:
+# party": you and your group members within 40 yards, lowest health first), whatever you have
+# selected. Solo, it heals you.
+
+name: Priest Holy
+class: priest
+spec: holy
+priority: 10
+
+lists:
+  precombat:
+    - cast: 'Power Word: Fortitude'
+      on: self
+      if: 'not player.aura("Power Word: Fortitude", "Prayer of Fortitude")'
+
+    - cast: Inner Fire
+      on: self
+      if: not player.my_aura("Inner Fire")
+
+    # Top the group up after a fight.
+    - cast: Renew
+      on: party
+      if: unit.health_pct < 90 and not unit.my_aura("Renew")
+
+    - cast: Flash Heal
+      on: party
+      if: unit.health_pct < 70
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Guardian Spirit
+      on: party
+      if: unit.health_pct < 20 and unit.attackers >= 1
+
+    - cast: Psychic Scream
+      if: pvp and player.health_pct < 40 and target.distance < 8 and target.dr("Psychic Scream") == 0
+
+    - cast: Fade
+      on: self
+      if: pve and player.attackers >= 1 and party_below(101) > 1
+
+  pve_st:
+    # Channelled; heals the group a lot, for a long time.
+    - cast: Divine Hymn
+      on: self
+      if: burst and party_below(50) >= 3
+
+    - cast: Circle of Healing
+      on: party
+      if: party_below(85) >= 3 and unit.health_pct < 85
+
+    - cast: Prayer of Mending
+      on: party
+      if: unit.most_attacked and party_my_aura("Prayer of Mending") == 0
+
+    - cast: Renew
+      on: party
+      if: unit.most_attacked and not unit.my_aura("Renew")
+
+    - cast: Prayer of Healing
+      on: self
+      if: party_below(70) >= 3
+
+    - cast: Flash Heal
+      on: party
+      if: unit.health_pct < 50
+
+    # Serendipity (after Flash Heal) makes Greater Heal and Prayer of Healing faster.
+    - cast: Greater Heal
+      on: party
+      if: unit.health_pct < 65
+
+    - cast: Renew
+      on: party
+      if: unit.health_pct < 90 and not unit.my_aura("Renew")
+
+    - cast: Flash Heal
+      on: party
+      if: unit.health_pct < 80
+
+    - cast: Dispel Magic
+      on: party
+      if: unit.dispellable("magic") >= 1
+
+    - cast: Abolish Disease
+      on: party
+      if: unit.dispellable("disease") >= 1 and not unit.my_aura("Abolish Disease")
+
+    # Nobody needs healing: fight. Solo this is your damage while levelling.
+    - cast: 'Shadow Word: Pain'
+      if: 'target.my_aura("Shadow Word: Pain").remains < 1 and target.health_pct > 25 and party_below(80) == 0'
+
+    - cast: Holy Fire
+      if: party_below(80) == 0
+
+    - cast: Mind Blast
+      if: party_below(80) == 0
+
+    - cast: Smite
+      if: party_below(80) == 0

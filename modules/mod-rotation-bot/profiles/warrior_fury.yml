@@ -1,0 +1,152 @@
+# Warrior, Fury. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Bloodthirst; before that, warrior_leveling.yml is used. Fury lives in
+# Berserker Stance, so Pummel needs no stance dance. Intercept is left out because it moves you.
+
+name: Warrior Fury
+class: warrior
+requires: Bloodthirst
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  defensives:
+    # Breaks fear.
+    - cast: Berserker Rage
+      on: self
+      if: player.feared
+
+    # Break hard crowd control that would last a while. Every Man for Himself (humans) and the PvP
+    # trinket share a cooldown.
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Breaks roots.
+    - cast: Heroic Fury
+      on: self
+      if: pvp and player.rooted
+
+    # Needs an enrage effect; the server refuses it without one.
+    - cast: Enraged Regeneration
+      on: self
+      if: player.health_pct < 40
+
+    - cast: Berserker Rage
+      on: self
+      if: player.health_pct < 40 and known("Enraged Regeneration") and cooldown("Enraged Regeneration") == 0
+
+    - cast: Intimidating Shout
+      if: pvp and player.health_pct < 30 and target.in_melee and target.dr("Intimidating Shout") == 0
+
+  # Waits for the reaction delay. In PvP only heals and crowd control are worth a kick.
+  interrupts:
+    - cast: Pummel
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Pummel
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pvp:
+    - cast: Berserker Stance
+      on: self
+      if: not player.aura("Berserker Stance")
+
+    - cast: Hamstring
+      if: target.is_player and target.my_aura("Hamstring").remains < 1 and not target.aura("Hand of Freedom")
+
+    - cast: Death Wish
+      on: self
+      if: burst
+
+    - cast: Recklessness
+      on: self
+      if: burst and target.health_pct < 50
+
+    # Kill window: another enemy player within reach is nearly dead while your target is healthy.
+    - cast: Execute
+      on: enemy_players
+      if: unit.health_pct < 20 and target.health_pct > 20
+
+    - cast: Bloodthirst
+    - cast: Whirlwind
+
+    # Bloodsurge's proc buff is called "Slam!"; it makes the next Slam instant.
+    - cast: Slam
+      if: player.aura("Slam!")
+
+    - cast: Execute
+
+    - cast: Victory Rush
+      if: player.health_pct < 80
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout", "Blessing of Might", "Greater Blessing of Might")
+
+    - cast: Heroic Strike
+      if: player.power >= 60
+
+    - cast: Berserker Rage
+      on: self
+      if: player.power < 30
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50
+
+  pve_aoe:
+    - cast: Whirlwind
+
+    - cast: Cleave
+      if: player.power >= 50 and target.threat_pct < 90
+
+  pve_st:
+    - cast: Berserker Stance
+      on: self
+      if: not player.aura("Berserker Stance")
+
+    - cast: Death Wish
+      on: self
+      if: burst and (target.is_boss or target.health_pct > 50)
+
+    - cast: Recklessness
+      on: self
+      if: burst and target.is_boss
+
+    - cast: Berserker Rage
+      on: self
+      if: player.power < 30
+
+    - cast: Bloodthirst
+    - cast: Whirlwind
+
+    - cast: Slam
+      if: player.aura("Slam!")
+
+    - cast: Execute
+    - cast: Victory Rush
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout", "Blessing of Might", "Greater Blessing of Might")
+
+    # Rage dump, held back near the top of the threat list.
+    - cast: Heroic Strike
+      if: player.power >= 50 and target.threat_pct < 90
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50

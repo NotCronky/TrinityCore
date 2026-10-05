@@ -1,0 +1,80 @@
+# Paladin, levelling. Used by every paladin until a spec profile applies: paladin_retribution.yml
+# (Crusader Strike), paladin_protection.yml (Holy Shield) or paladin_holy.yml (Holy Shock). Spells
+# you haven't learned yet are skipped, so it works from level 1.
+
+name: Paladin Levelling
+class: paladin
+auto_attack: true
+aoe_enemies: 2
+aoe_radius: 8
+
+lists:
+  # Run out of combat while the rotation is on (never while you sit, eat or drink).
+  precombat:
+    # Keeps whichever aura you picked; only puts one up when you have none of yours.
+    - cast: Devotion Aura
+      on: self
+      if: not player.my_aura("Devotion Aura", "Retribution Aura", "Concentration Aura", "Crusader Aura")
+
+    - cast: Seal of Righteousness
+      on: self
+      if: not player.my_aura("Seal of Righteousness", "Seal of Command", "Seal of Light", "Seal of Wisdom", "Seal of Justice", "Seal of Vengeance", "Seal of Corruption")
+
+    - cast: Blessing of Might
+      on: self
+      if: not player.aura("Blessing of Might", "Greater Blessing of Might", "Blessing of Kings", "Greater Blessing of Kings", "Blessing of Wisdom", "Greater Blessing of Wisdom")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Lay on Hands
+      on: self
+      if: player.health_pct < 15 and not player.aura("Forbearance")
+
+    - cast: Divine Shield
+      on: self
+      if: player.health_pct < 20 and not player.aura("Forbearance")
+
+    - cast: Divine Protection
+      on: self
+      if: player.health_pct < 35 and not player.aura("Forbearance")
+
+    # Has a cast time, so it waits until you stand still.
+    - cast: Holy Light
+      on: self
+      if: player.health_pct < 35
+
+    - cast: Purify
+      on: self
+      if: player.dispellable("poison") + player.dispellable("disease") >= 1
+
+  # Waits for the reaction delay. Hammer of Justice is a stun; it is skipped when diminishing
+  # returns would make the target immune.
+  interrupts:
+    - cast: Hammer of Justice
+      if: target.casting and (pve or target.cast_heal or target.cast_cc)
+
+  pve_aoe:
+    - cast: Consecration
+      if: player.power_pct > 30
+
+  pve_st:
+    - cast: Seal of Righteousness
+      on: self
+      if: not player.my_aura("Seal of Righteousness", "Seal of Command", "Seal of Light", "Seal of Wisdom", "Seal of Justice", "Seal of Vengeance", "Seal of Corruption")
+
+    - cast: Judgement of Light
+
+    # The server only allows it below 20%.
+    - cast: Hammer of Wrath
+
+    - cast: Crusader Strike
+
+    # The Art of War makes it instant; otherwise it has a cast time.
+    - cast: Exorcism
+
+    - cast: Divine Plea
+      on: self
+      if: player.power_pct < 30

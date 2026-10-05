@@ -1,0 +1,154 @@
+# Druid, Feral: Cat Form damage and Bear Form tanking in one profile. The profile format and the
+# condition language are described in the README. Edit this file and type ".rot reload" in game
+# to apply the changes.
+#
+# Applies once you know Mangle (Cat). Both forms share the talents, so the form you are in picks
+# the rotation: the server only allows cat abilities in Cat Form and bear abilities in Bear Form,
+# so each list runs the cat entries in Cat Form and the bear entries in Bear Form. It never
+# shifts you; pick the form yourself.
+#
+# Openers (Pounce, Ravage) need Prowl: press ".rot next" from Prowl. Feral Charge is left out
+# because it moves you.
+
+name: Druid Feral
+class: druid
+requires: Mangle (Cat)
+priority: 10
+auto_attack: true
+# Bear AoE threat pays off from 2 targets; cat Swipe carries its own 3-target condition below.
+aoe_enemies: 2
+aoe_radius: 8
+
+lists:
+  precombat:
+    # Caster form only; in a form the server refuses it, so it never shifts you out.
+    - cast: Mark of the Wild
+      on: self
+      if: not player.aura("Mark of the Wild", "Gift of the Wild")
+
+    - cast: Thorns
+      on: self
+      if: not player.aura("Thorns")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Survival Instincts
+      on: self
+      if: player.health_pct < 30
+
+    # Bear Form.
+    - cast: Frenzied Regeneration
+      on: self
+      if: player.health_pct < 35
+
+    - cast: Barkskin
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1
+
+    # Cat Form: Predator's Swiftness makes the next Healing Touch instant and usable in form.
+    - cast: Healing Touch
+      on: self
+      if: player.health_pct < 60 and player.aura("Predator's Swiftness")
+
+  # Waits for the reaction delay. Bash (bear) and Maim (cat, needs combo points) both stun.
+  interrupts:
+    - cast: Bash
+      if: target.casting and (pve or target.cast_heal or target.cast_cc) and target.dr("Bash") == 0
+
+    - cast: Maim
+      if: pvp and target.casting and (target.cast_heal or target.cast_cc) and player.combo_points >= 1 and target.dr("Maim") == 0
+
+  pve_aoe:
+    # Bear Form.
+    - cast: Swipe (Bear)
+
+    - cast: Challenging Roar
+      on: self
+      if: party_below(101) > 1 and enemies(10) >= 3 and player.attackers < enemies(10) - 1
+
+    # Cat Form.
+    - cast: Swipe (Cat)
+      if: enemies(8) >= 3
+
+  pve_st:
+    # ----- Bear Form (tank) -----
+
+    # Taunt anything attacking another group member. Doesn't work on players.
+    - cast: Growl
+      on: enemies
+      if: unit.targeting_party and not unit.is_player
+
+    - cast: Berserk
+      on: self
+      if: burst and player.aura("Dire Bear Form", "Bear Form")
+
+    # Rage from nothing, out of combat or when starved.
+    - cast: Enrage
+      on: self
+      if: player.power < 20 and player.aura("Dire Bear Form", "Bear Form")
+
+    - cast: Mangle (Bear)
+
+    - cast: Demoralizing Roar
+      if: not target.aura("Demoralizing Roar", "Demoralizing Shout", "Curse of Weakness")
+
+    # Faerie Fire (Feral) does extra threat in Bear Form and keeps the armor debuff up.
+    - cast: Faerie Fire (Feral)
+      if: player.aura("Dire Bear Form", "Bear Form")
+
+    # Stack Lacerate to 5 and refresh it before it falls off.
+    - cast: Lacerate
+      if: target.my_aura("Lacerate").stacks < 5 or target.my_aura("Lacerate").remains < 3
+
+    - cast: Swipe (Bear)
+      if: target.enemies(8) >= 2
+
+    # Off the global cooldown: rage dump on the next swing.
+    - cast: Maul
+      if: player.power >= 30
+
+    # ----- Cat Form (damage) -----
+
+    - cast: Pounce
+      if: pvp
+
+    - cast: Ravage
+
+    - cast: Tiger's Fury
+      on: self
+      if: player.power < 30
+
+    - cast: Berserk
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Faerie Fire (Feral)
+      if: not target.aura("Faerie Fire", "Faerie Fire (Feral)", "Sunder Armor", "Expose Armor")
+
+    - cast: Savage Roar
+      on: self
+      if: player.combo_points >= 1 and player.my_aura("Savage Roar").remains < 1
+
+    - cast: Mangle (Cat)
+      if: not target.aura("Mangle (Cat)", "Mangle (Bear)", "Trauma")
+
+    - cast: Rip
+      if: player.combo_points >= 5 and target.my_aura("Rip").remains < 1 and (target.health_pct > 25 or target.is_boss)
+
+    - cast: Ferocious Bite
+      if: player.combo_points >= 5 and player.my_aura("Savage Roar").remains > 8 and target.my_aura("Rip").remains > 8
+
+    - cast: Rake
+      if: target.my_aura("Rake").remains < 1 and target.health_pct > 15
+
+    - cast: Shred
+      if: target.behind
+
+    - cast: Mangle (Cat)

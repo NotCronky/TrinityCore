@@ -1,0 +1,133 @@
+# Paladin, Holy (healer). The profile format and the condition language are described in the
+# README. Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once most of your talent points are in Holy, from level 10. Heals go to your group ("on:
+# party": you and your group members within 40 yards, lowest health first), whatever you have
+# selected. Solo, it heals you. Spells with a cast time wait until you stand still.
+
+name: Paladin Holy
+class: paladin
+spec: holy
+priority: 10
+# Melee while there is nothing to heal, mostly for levelling solo.
+auto_attack: true
+
+lists:
+  precombat:
+    - cast: Concentration Aura
+      on: self
+      if: not player.my_aura("Devotion Aura", "Retribution Aura", "Concentration Aura", "Crusader Aura")
+
+    - cast: Seal of Wisdom
+      on: self
+      if: not player.my_aura("Seal of Wisdom", "Seal of Light", "Seal of Righteousness", "Seal of Command", "Seal of Justice", "Seal of Vengeance", "Seal of Corruption")
+
+    - cast: Blessing of Wisdom
+      on: self
+      if: not player.aura("Blessing of Wisdom", "Greater Blessing of Wisdom", "Blessing of Kings", "Greater Blessing of Kings")
+
+    # Top the group up after a fight.
+    - cast: Holy Light
+      on: party
+      if: unit.health_pct < 80
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Divine Shield
+      on: self
+      if: player.health_pct < 20 and not player.aura("Forbearance")
+
+    - cast: Divine Protection
+      on: self
+      if: player.health_pct < 40 and not player.aura("Forbearance")
+
+    - cast: Lay on Hands
+      on: party
+      if: unit.health_pct < 15 and not unit.aura("Forbearance")
+
+    - cast: Hand of Freedom
+      on: party
+      if: pvp and unit.rooted
+
+    # Hand of Protection drops threat, so never on whoever the enemies are attacking most.
+    - cast: Hand of Protection
+      on: party
+      if: unit.health_pct < 25 and unit.attackers >= 1 and not unit.most_attacked and not unit.aura("Forbearance")
+
+    # Mana back, at the cost of healing done, while nobody needs much healing.
+    - cast: Divine Plea
+      on: self
+      if: player.power_pct < 60 and party_below(70) == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Hammer of Justice
+      if: target.casting and (target.cast_heal or target.cast_cc)
+
+  pve_st:
+    # One Beacon of Light and one Sacred Shield, on whoever the enemies attack most (the tank).
+    - cast: Beacon of Light
+      on: party
+      if: unit.most_attacked and party_my_aura("Beacon of Light") == 0
+
+    - cast: Sacred Shield
+      on: party
+      if: unit.most_attacked and party_my_aura("Sacred Shield") == 0
+
+    - cast: Divine Favor
+      on: self
+      if: burst and party_below(40) >= 1
+
+    - cast: Divine Illumination
+      on: self
+      if: burst and party_below(60) >= 2
+
+    - cast: Holy Shock
+      on: party
+      if: unit.health_pct < 70
+
+    # Infusion of Light (after a Holy Shock crit) makes the next Flash of Light or Holy Light faster.
+    - cast: Flash of Light
+      on: party
+      if: unit.health_pct < 90 and player.aura("Infusion of Light")
+
+    - cast: Holy Light
+      on: party
+      if: unit.health_pct < 60
+
+    - cast: Flash of Light
+      on: party
+      if: unit.health_pct < 90
+
+    # Nobody needs a heal: clear debuffs.
+    - cast: Cleanse
+      on: party
+      if: unit.dispellable("magic") + unit.dispellable("poison") + unit.dispellable("disease") >= 1
+
+    # Keeps up Judgements of the Pure (haste) when you have a hostile target.
+    - cast: Judgement of Light
+      if: player.my_aura("Judgements of the Pure").remains < 5
+
+    - cast: Seal of Wisdom
+      on: self
+      if: not player.my_aura("Seal of Wisdom", "Seal of Light", "Seal of Righteousness", "Seal of Command", "Seal of Justice", "Seal of Vengeance", "Seal of Corruption")
+
+    # Nobody needs healing: fight. Solo this is your damage while levelling.
+    - cast: Hammer of Wrath
+    - cast: Crusader Strike
+
+    - cast: Holy Shock
+      if: party_below(90) == 0
+
+    - cast: Exorcism
+      if: party_below(80) == 0
+
+    - cast: Consecration
+      if: target.in_melee and player.power_pct > 50 and party_below(80) == 0

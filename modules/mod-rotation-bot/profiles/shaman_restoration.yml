@@ -1,0 +1,111 @@
+# Shaman, Restoration (healer). The profile format and the condition language are described in the
+# README. Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once most of your talent points are in Restoration, from level 10. Heals go to your group
+# ("on: party": you and your group members within 40 yards, lowest health first), whatever you have
+# selected. Solo, it heals you.
+
+name: Shaman Restoration
+class: shaman
+spec: restoration
+priority: 10
+
+lists:
+  precombat:
+    - cast: Water Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Earthliving Weapon
+      on: self
+      if: not player.mainhand_enchanted
+
+    # Top the group up after a fight.
+    - cast: Healing Wave
+      on: party
+      if: unit.health_pct < 80
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Nature's Swiftness makes the next Healing Wave instant.
+    - cast: Nature's Swiftness
+      on: self
+      if: party_below(30) >= 1
+
+    - cast: Healing Wave
+      on: party
+      if: unit.health_pct < 30 and player.aura("Nature's Swiftness")
+
+    - cast: Mana Tide Totem
+      on: self
+      if: player.power_pct < 40
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Wind Shear
+      if: target.cast_interruptible and (target.cast_heal or target.cast_cc)
+
+  pve_st:
+    # One Earth Shield, on whoever the enemies attack most (the tank).
+    - cast: Earth Shield
+      on: party
+      if: unit.most_attacked and party_my_aura("Earth Shield") == 0
+
+    - cast: Water Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Tidal Force
+      on: self
+      if: burst and party_below(50) >= 2
+
+    - cast: Riptide
+      on: party
+      if: unit.health_pct < 90 and not unit.my_aura("Riptide")
+
+    - cast: Chain Heal
+      on: party
+      if: unit.health_pct < 80 and party_below(80) >= 3
+
+    # Tidal Waves (after Riptide or Chain Heal) speeds these up.
+    - cast: Lesser Healing Wave
+      on: party
+      if: unit.health_pct < 60
+
+    - cast: Healing Wave
+      on: party
+      if: unit.health_pct < 75
+
+    - cast: Chain Heal
+      on: party
+      if: unit.health_pct < 85 and party_below(85) >= 2
+
+    - cast: Cleanse Spirit
+      on: party
+      if: unit.dispellable("curse") + unit.dispellable("poison") + unit.dispellable("disease") >= 1
+
+    - cast: Mana Spring Totem
+      on: self
+      if: not player.totem_water
+
+    - cast: Wrath of Air Totem
+      on: self
+      if: not player.totem_air
+
+    # Nobody needs healing: fight. Solo this is your damage while levelling.
+    - cast: Flame Shock
+      if: target.my_aura("Flame Shock").remains < 1 and target.health_pct > 25 and party_below(80) == 0
+
+    - cast: Lightning Bolt
+      if: party_below(80) == 0 and player.power_pct > 40

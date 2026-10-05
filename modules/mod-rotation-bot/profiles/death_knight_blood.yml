@@ -1,0 +1,86 @@
+# Death Knight, Blood (tank). The profile format and the condition language are described in the
+# README. Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Heart Strike. Tanks in Frost Presence; switch the precombat presence to
+# Blood Presence to play it as damage instead. It has no pvp list, so PvP uses the PvE lists.
+
+name: Death Knight Blood
+class: death_knight
+requires: Heart Strike
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Frost Presence
+      on: self
+      if: not player.aura("Blood Presence", "Frost Presence", "Unholy Presence")
+
+    - cast: Horn of Winter
+      on: self
+      if: not player.aura("Horn of Winter", "Strength of Earth")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Icebound Fortitude
+      on: self
+      if: player.health_pct < 30
+
+    - cast: Vampiric Blood
+      on: self
+      if: player.health_pct < 40
+
+    - cast: Rune Tap
+      on: self
+      if: player.health_pct < 50
+
+    - cast: Anti-Magic Shell
+      on: self
+      if: target.casting and target.targeting_me and not target.cast_heal
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Mind Freeze
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+  pve_aoe:
+    - cast: Pestilence
+      if: target.my_aura("Frost Fever") and target.my_aura("Blood Plague")
+
+    - cast: Death and Decay
+    - cast: Blood Boil
+
+  pve_st:
+    # Taunt anything attacking another group member. Doesn't work on players.
+    - cast: Dark Command
+      on: enemies
+      if: unit.targeting_party and not unit.is_player
+
+    # Off the global cooldown after a dodge or parry; the server checks.
+    - cast: Rune Strike
+
+    - cast: Dancing Rune Weapon
+      if: burst
+
+    - cast: Icy Touch
+      if: target.my_aura("Frost Fever").remains < 1
+
+    - cast: Plague Strike
+      if: target.my_aura("Blood Plague").remains < 1
+
+    - cast: Death Strike
+      if: player.health_pct < 80
+
+    - cast: Heart Strike
+    - cast: Death Strike
+
+    - cast: Death Coil
+      if: player.power >= 80
+
+    - cast: Horn of Winter
+      on: self

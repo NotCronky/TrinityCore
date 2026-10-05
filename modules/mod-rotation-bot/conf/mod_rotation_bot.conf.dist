@@ -1,0 +1,86 @@
+[worldserver]
+
+###################################################################################################
+# mod-rotation-bot
+#
+#    RotationBot.Enable
+#        Description: Turns the module on or off. Turning it off with ".reload config" stops every
+#                     running rotation.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+RotationBot.Enable = 1
+
+#
+#    RotationBot.MinSecurity
+#        Description: Lowest account security level allowed to use ".rot".
+#        Default:     0 - Players
+#                     1 - Moderators
+#                     2 - Game masters
+#                     3 - Administrators
+#
+
+RotationBot.MinSecurity = 0
+
+#
+#    RotationBot.Accounts
+#        Description: Comma-separated account ids allowed to use ".rot", e.g. "1,4". Applies on
+#                     top of RotationBot.MinSecurity.
+#        Default:     "" - Every account
+#
+
+RotationBot.Accounts = ""
+
+#
+#    RotationBot.TickIntervalMs
+#        Description: How often, in milliseconds, the rotation is evaluated for each player who
+#                     has it on. Clamped to 50-1000.
+#        Default:     120
+#
+
+RotationBot.TickIntervalMs = 120
+
+#
+#    RotationBot.ProfileDir
+#        Description: Folder holding the profile files (*.yml, *.yaml). ".rot reload" reads them
+#                     again.
+#        Default:     "" - The profiles folder in the module's source tree, so edits there apply
+#                          with ".rot reload" and no copying.
+#
+
+RotationBot.ProfileDir = ""
+
+#
+#    RotationBot.DefaultMode
+#        Description: The mode a character starts with each login. ".rot mode" changes it for the
+#                     session.
+#        Default:     "auto" - PvP against a player target or inside a battleground or arena,
+#                             PvE otherwise
+#                     "pve"
+#                     "pvp"
+#
+
+RotationBot.DefaultMode = "auto"
+
+#
+#    RotationBot.InterruptDelayMinMs
+#    RotationBot.InterruptDelayMaxMs
+#        Description: Reaction delay for interrupts, in milliseconds. In automatic mode the
+#                     "interrupts" list waits a random time in this range after a target's cast is
+#                     first seen. A ".rot next" press doesn't wait. The tick interval adds up to
+#                     RotationBot.TickIntervalMs on top.
+#        Default:     150, 400
+#
+
+RotationBot.InterruptDelayMinMs = 150
+RotationBot.InterruptDelayMaxMs = 400
+
+#
+#    Tick logging
+#        Every tick is logged at debug level under "module.rotationbot". To see it, add this line
+#        to worldserver.conf (the module's own config is not read for loggers):
+#
+#            Logger.module.rotationbot=5,Console Server
+#
+###################################################################################################

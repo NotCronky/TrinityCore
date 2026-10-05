@@ -1,0 +1,98 @@
+# Death Knight, Frost. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Howling Blast.
+
+name: Death Knight Frost
+class: death_knight
+requires: Howling Blast
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Blood Presence
+      on: self
+      if: not player.aura("Blood Presence", "Frost Presence", "Unholy Presence")
+
+    - cast: Horn of Winter
+      on: self
+      if: not player.aura("Horn of Winter", "Strength of Earth")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Lichborne
+      on: self
+      if: pvp and (player.feared or player.cc_remains > 2)
+
+    - cast: Icebound Fortitude
+      on: self
+      if: player.health_pct < 35
+
+    - cast: Anti-Magic Shell
+      on: self
+      if: target.casting and target.targeting_me and not target.cast_heal
+
+    - cast: Death Strike
+      if: player.health_pct < 40
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Mind Freeze
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Mind Freeze
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+    - cast: Strangulate
+      if: pvp and target.casting and (target.cast_heal or target.cast_cc) and target.dr("Strangulate") == 0
+
+  pve_aoe:
+    - cast: Howling Blast
+
+    - cast: Pestilence
+      if: target.my_aura("Frost Fever") and target.my_aura("Blood Plague")
+
+    - cast: Death and Decay
+
+  pve_st:
+    - cast: Chains of Ice
+      if: pvp and target.is_player and not target.my_aura("Chains of Ice") and not target.aura("Hand of Freedom")
+
+    - cast: Unbreakable Armor
+      on: self
+      if: burst
+
+    - cast: Icy Touch
+      if: target.my_aura("Frost Fever").remains < 1
+
+    - cast: Plague Strike
+      if: target.my_aura("Blood Plague").remains < 1
+
+    # Rime's proc buff is called Freezing Fog: a free Howling Blast.
+    - cast: Howling Blast
+      if: player.aura("Freezing Fog")
+
+    - cast: Frost Strike
+      if: player.aura("Killing Machine") or player.power >= 80
+
+    - cast: Obliterate
+    - cast: Blood Strike
+    - cast: Frost Strike
+
+    - cast: Empower Rune Weapon
+      on: self
+      if: burst and cooldown("Obliterate") > 0 and player.power < 40
+
+    - cast: Horn of Winter
+      on: self

@@ -1,0 +1,66 @@
+# Mage, levelling. Used by every mage until a spec profile applies: mage_arcane.yml (Presence of
+# Mind), mage_fire.yml (Combustion) or mage_frost.yml (Icy Veins). Spells you haven't learned yet
+# are skipped, so it works from level 1. Spells with a cast time wait until you stand still.
+#
+# Blink is left out because it moves you.
+
+name: Mage Levelling
+class: mage
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Arcane Intellect
+      on: self
+      if: not player.aura("Arcane Intellect", "Arcane Brilliance", "Dalaran Intellect", "Dalaran Brilliance")
+
+    - cast: Frost Armor
+      on: self
+      if: not player.my_aura("Molten Armor", "Mage Armor", "Ice Armor", "Frost Armor")
+
+    - cast: Ice Armor
+      on: self
+      if: player.my_aura("Frost Armor")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Ice Block
+      on: self
+      if: player.health_pct < 15 and not player.aura("Hypothermia")
+
+    # Roots everything in melee range; step away yourself.
+    - cast: Frost Nova
+      on: self
+      if: player.attackers >= 1 and target.in_melee and target.dr("Frost Nova") == 0
+
+    - cast: Mana Shield
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1 and player.power_pct > 30
+
+    - cast: Evocation
+      on: self
+      if: player.power_pct < 15 and player.attackers == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Counterspell
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+  pve_aoe:
+    - cast: Arcane Explosion
+      if: enemies(10) >= 3
+
+    # Ground-targeted: lands at the target's feet.
+    - cast: Blizzard
+      if: target.enemies(8) >= 3
+
+  pve_st:
+    - cast: Fire Blast
+      if: target.health_pct < 20 or player.moving
+
+    - cast: Frostbolt
+    - cast: Fireball

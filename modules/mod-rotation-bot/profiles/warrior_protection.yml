@@ -1,0 +1,102 @@
+# Warrior, Protection (tank). The profile format and the condition language are described in the
+# README. Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Devastate; before that, warrior_leveling.yml is used. It has no pvp list,
+# so PvP uses the PvE lists. Intervene is left out because it moves you.
+
+name: Warrior Protection
+class: warrior
+requires: Devastate
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    - cast: Defensive Stance
+      on: self
+      if: not player.aura("Defensive Stance")
+
+  defensives:
+    - cast: Berserker Rage
+      on: self
+      if: player.feared
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Last Stand
+      on: self
+      if: player.health_pct < 30
+
+    - cast: Shield Wall
+      on: self
+      if: player.health_pct < 25
+
+    - cast: Enraged Regeneration
+      on: self
+      if: player.health_pct < 40
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Shield Bash
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    # A spell cast at you while you have a shield.
+    - cast: Spell Reflection
+      on: self
+      if: target.casting and target.targeting_me and not target.cast_heal
+
+  pve_aoe:
+    - cast: Thunder Clap
+    - cast: Shockwave
+
+    - cast: Demoralizing Shout
+      if: not target.aura("Demoralizing Shout", "Demoralizing Roar", "Curse of Weakness")
+
+    - cast: Cleave
+      if: player.power >= 40
+
+  pve_st:
+    - cast: Defensive Stance
+      on: self
+      if: not player.aura("Defensive Stance")
+
+    # Taunt anything attacking another group member. Taunt doesn't work on players.
+    - cast: Taunt
+      on: enemies
+      if: unit.targeting_party and not unit.is_player
+
+    # Sword and Board resets Shield Slam; the server allows Revenge after a block, dodge or parry.
+    - cast: Shield Slam
+    - cast: Revenge
+
+    # Raises Shield Slam's damage as well as your block.
+    - cast: Shield Block
+      on: self
+      if: player.attackers >= 1
+
+    - cast: Shockwave
+    - cast: Concussion Blow
+
+    - cast: Thunder Clap
+      if: not target.aura("Thunder Clap", "Frost Fever", "Infected Wounds")
+
+    - cast: Demoralizing Shout
+      if: not target.aura("Demoralizing Shout", "Demoralizing Roar", "Curse of Weakness")
+
+    - cast: Devastate
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout", "Blessing of Might", "Greater Blessing of Might")
+
+    # Threat and rage dump. Tanks don't hold back on threat.
+    - cast: Heroic Strike
+      if: player.power >= 50
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50

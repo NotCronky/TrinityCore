@@ -1,0 +1,88 @@
+# Druid, Balance. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Moonkin Form. Spells with a cast time wait until you stand still.
+
+name: Druid Balance
+class: druid
+requires: Moonkin Form
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Mark of the Wild
+      on: self
+      if: not player.aura("Mark of the Wild", "Gift of the Wild")
+
+    - cast: Thorns
+      on: self
+      if: not player.aura("Thorns")
+
+    # Only from caster form, so it never shifts you out of Travel or Flight Form.
+    - cast: Moonkin Form
+      on: self
+      if: not player.aura("Moonkin Form", "Cat Form", "Bear Form", "Dire Bear Form", "Travel Form", "Aquatic Form", "Flight Form", "Swift Flight Form")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Barkskin
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1
+
+    - cast: Typhoon
+      if: pvp and target.in_melee and target.distance < 8
+
+    - cast: Innervate
+      on: self
+      if: player.power_pct < 20
+
+    - cast: Moonkin Form
+      on: self
+      if: not player.aura("Moonkin Form", "Cat Form", "Bear Form", "Dire Bear Form", "Travel Form", "Aquatic Form", "Flight Form", "Swift Flight Form")
+
+  pve_aoe:
+    - cast: Starfall
+      on: self
+      if: burst
+
+    # Ground-targeted: lands at the target's feet. Channelled.
+    - cast: Hurricane
+      if: target.enemies(8) >= 3
+
+  pve_st:
+    - cast: Force of Nature
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Starfall
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Faerie Fire
+      if: not target.aura("Faerie Fire", "Faerie Fire (Feral)", "Sunder Armor", "Expose Armor")
+
+    - cast: Insect Swarm
+      if: target.my_aura("Insect Swarm").remains < 1 and target.health_pct > 15
+
+    - cast: Moonfire
+      if: target.my_aura("Moonfire").remains < 1 and target.health_pct > 15
+
+    # Eclipse: Solar empowers Wrath, Lunar empowers Starfire.
+    - cast: Wrath
+      if: player.aura("Eclipse (Solar)")
+
+    - cast: Starfire
+      if: player.aura("Eclipse (Lunar)")
+
+    - cast: Starfire
+
+    - cast: Moonfire
+      if: player.moving

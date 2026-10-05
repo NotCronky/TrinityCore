@@ -1,0 +1,101 @@
+# Warlock, Demonology. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Soul Link. Spells with a cast time and channels wait until you stand still.
+
+name: Warlock Demonology
+class: warlock
+requires: Soul Link
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Summon Felguard
+      on: self
+      if: not pet.exists
+
+    - cast: Summon Felhunter
+      on: self
+      if: not pet.exists
+
+    - cast: Soul Link
+      on: self
+      if: pet.exists and not player.my_aura("Soul Link")
+
+    - cast: Fel Armor
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Death Coil
+      if: player.health_pct < 35 and target.dr("Death Coil") == 0
+
+    - cast: Health Funnel
+      on: pet
+      if: pet.health_pct < 30 and player.health_pct > 60
+
+    - use: Fel Healthstone
+      on: self
+      if: player.health_pct < 35
+
+    - use: Demonic Healthstone
+      on: self
+      if: player.health_pct < 35
+
+  pve_aoe:
+    # Metamorphosis' AoE.
+    - cast: Immolation Aura
+      on: self
+      if: player.aura("Metamorphosis") and enemies(8) >= 2
+
+    - cast: Seed of Corruption
+      on: enemies
+      if: not unit.my_aura("Seed of Corruption") and unit.health_pct > 30
+
+  pve_st:
+    - cast: Life Tap
+      on: self
+      if: player.power_pct < 25 and player.health_pct > 50
+
+    - cast: Metamorphosis
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Demonic Empowerment
+      on: self
+      if: pet.exists and burst
+
+    - cast: Curse of the Elements
+      if: target.is_boss and not target.aura("Curse of the Elements", "Earth and Moon", "Ebon Plague")
+
+    - cast: Curse of Agony
+      if: not target.my_aura("Curse of Agony", "Curse of the Elements", "Curse of Doom", "Curse of Tongues", "Curse of Weakness", "Curse of Exhaustion") and target.health_pct > 25
+
+    - cast: Corruption
+      if: not target.my_aura("Corruption") and target.health_pct > 15
+
+    - cast: Immolate
+      if: target.my_aura("Immolate").remains < 2 and target.health_pct > 15
+
+    # Decimation (target below 35%) makes Soul Fire fast; Molten Core empowers Incinerate.
+    - cast: Soul Fire
+      if: player.aura("Decimation")
+
+    - cast: Incinerate
+      if: player.aura("Molten Core")
+
+    - cast: Shadow Bolt

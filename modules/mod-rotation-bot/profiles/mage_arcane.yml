@@ -1,0 +1,110 @@
+# Mage, Arcane. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Presence of Mind. Spells with a cast time wait until you stand still.
+
+name: Mage Arcane
+class: mage
+requires: Presence of Mind
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Arcane Intellect
+      on: self
+      if: not player.aura("Arcane Intellect", "Arcane Brilliance", "Dalaran Intellect", "Dalaran Brilliance")
+
+    - cast: Molten Armor
+      on: self
+      if: not player.my_aura("Molten Armor", "Mage Armor", "Ice Armor", "Frost Armor")
+
+    - cast: Mage Armor
+      on: self
+      if: not player.my_aura("Molten Armor", "Mage Armor", "Ice Armor", "Frost Armor")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Ice Block
+      on: self
+      if: player.health_pct < 15 and not player.aura("Hypothermia")
+
+    - cast: Frost Nova
+      on: self
+      if: player.attackers >= 1 and target.in_melee and target.dr("Frost Nova") == 0
+
+    - cast: Mana Shield
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1 and player.power_pct > 30
+
+    - use: Mana Sapphire
+      on: self
+      if: player.power_pct < 70
+
+    - use: Mana Emerald
+      on: self
+      if: player.power_pct < 70
+
+    - cast: Evocation
+      on: self
+      if: player.power_pct < 20 and player.attackers == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Counterspell
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Counterspell
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    - cast: Arcane Explosion
+      if: enemies(10) >= 3
+
+    - cast: Blizzard
+      if: target.enemies(8) >= 3
+
+  pve_st:
+    - cast: Arcane Power
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Presence of Mind
+      on: self
+      if: burst
+
+    - cast: Mirror Image
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Spellsteal
+      if: pvp and target.dispellable("magic") >= 1
+
+    # Missile Barrage: a fast, free Arcane Missiles, best at 4 Arcane Blast stacks.
+    - cast: Arcane Missiles
+      if: player.aura("Missile Barrage") and (player.aura("Arcane Blast").stacks >= 4 or player.power_pct < 35)
+
+    # Build Arcane Blast stacks while mana allows.
+    - cast: Arcane Blast
+      if: player.power_pct > 35 or player.aura("Arcane Blast").stacks < 4
+
+    - cast: Arcane Barrage
+      if: player.moving or player.aura("Arcane Blast").stacks >= 4
+
+    - cast: Arcane Missiles
+
+    - cast: Fire Blast
+      if: player.moving

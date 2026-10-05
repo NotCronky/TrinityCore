@@ -1,0 +1,82 @@
+# Warlock, Destruction. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Conflagrate. Spells with a cast time and channels wait until you stand still.
+
+name: Warlock Destruction
+class: warlock
+requires: Conflagrate
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Summon Imp
+      on: self
+      if: not pet.exists
+
+    - cast: Fel Armor
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Death Coil
+      if: player.health_pct < 35 and target.dr("Death Coil") == 0
+
+    # Ground-targeted stun on the target and those around it.
+    - cast: Shadowfury
+      if: pvp and player.health_pct < 50 and target.dr("Shadowfury") == 0
+
+    - use: Fel Healthstone
+      on: self
+      if: player.health_pct < 35
+
+    - use: Demonic Healthstone
+      on: self
+      if: player.health_pct < 35
+
+  pve_aoe:
+    # Ground-targeted: lands at the target's feet. Channelled.
+    - cast: Rain of Fire
+
+  pve_st:
+    - cast: Life Tap
+      on: self
+      if: player.power_pct < 25 and player.health_pct > 50
+
+    - cast: Curse of the Elements
+      if: target.is_boss and not target.aura("Curse of the Elements", "Earth and Moon", "Ebon Plague")
+
+    - cast: Curse of Agony
+      if: not target.my_aura("Curse of Agony", "Curse of the Elements", "Curse of Doom", "Curse of Tongues", "Curse of Weakness", "Curse of Exhaustion") and target.health_pct > 25
+
+    # 2 s cast: goes out that long before it would fall off.
+    - cast: Immolate
+      if: target.my_aura("Immolate").remains < 2
+
+    # Needs Immolate (or Shadowflame) on the target; gives Backdraft.
+    - cast: Conflagrate
+
+    - cast: Chaos Bolt
+
+    - cast: Corruption
+      if: pvp and not target.my_aura("Corruption")
+
+    - cast: Incinerate
+
+    # Instant: while moving.
+    - cast: Shadowburn
+      if: player.moving or target.health_pct < 20

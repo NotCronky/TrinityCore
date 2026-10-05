@@ -1,0 +1,113 @@
+# Shaman, Elemental. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Elemental Mastery. Spells with a cast time wait until you stand still.
+
+name: Shaman Elemental
+class: shaman
+requires: Elemental Mastery
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Water Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Flametongue Weapon
+      on: self
+      if: not player.mainhand_enchanted
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Knocks back everything close and gives mana.
+    - cast: Thunderstorm
+      on: self
+      if: (pvp and player.attackers >= 1 and enemies(10) >= 1) or player.power_pct < 20
+
+    - cast: Healing Wave
+      on: self
+      if: player.health_pct < 35
+
+    - cast: Cleanse Spirit
+      on: self
+      if: player.dispellable("curse") + player.dispellable("poison") + player.dispellable("disease") >= 1
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Wind Shear
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Wind Shear
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    - cast: Magma Totem
+      on: self
+      if: not player.totem_fire and enemies(8) >= 3
+
+    - cast: Chain Lightning
+
+  pve_st:
+    # All four totems in one global cooldown, once you have set them up in game.
+    - cast: Call of the Elements
+      on: self
+      if: not player.totem_fire and not player.totem_earth and not player.totem_water and not player.totem_air
+
+    - cast: Totem of Wrath
+      on: self
+      if: not player.totem_fire
+
+    - cast: Wrath of Air Totem
+      on: self
+      if: not player.totem_air
+
+    - cast: Mana Spring Totem
+      on: self
+      if: not player.totem_water
+
+    - cast: Strength of Earth Totem
+      on: self
+      if: not player.totem_earth
+
+    - cast: Water Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Elemental Mastery
+      on: self
+      if: burst
+
+    # Purge enemy magic buffs.
+    - cast: Purge
+      if: pvp and target.dispellable("magic") >= 1
+
+    - cast: Flame Shock
+      if: target.my_aura("Flame Shock").remains < 2
+
+    # Lava Burst always crits on a Flame Shocked target.
+    - cast: Lava Burst
+      if: target.my_aura("Flame Shock").remains > 2
+
+    - cast: Chain Lightning
+      if: target.enemies(10) >= 2
+
+    - cast: Lightning Bolt
+
+    # Instant: while moving.
+    - cast: Earth Shock
+      if: player.moving

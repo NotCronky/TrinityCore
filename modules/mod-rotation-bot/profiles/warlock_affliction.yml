@@ -1,0 +1,95 @@
+# Warlock, Affliction. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Unstable Affliction. Spells with a cast time and channels wait until you
+# stand still.
+
+name: Warlock Affliction
+class: warlock
+requires: Unstable Affliction
+priority: 10
+aoe_enemies: 4
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Summon Felhunter
+      on: self
+      if: not pet.exists
+
+    - cast: Summon Imp
+      on: self
+      if: not pet.exists
+
+    - cast: Fel Armor
+      on: self
+      if: not player.my_aura("Fel Armor", "Demon Armor", "Demon Skin")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Death Coil
+      if: player.health_pct < 35 and target.dr("Death Coil") == 0
+
+    - cast: Howl of Terror
+      on: self
+      if: pvp and player.health_pct < 50 and enemies(10) >= 2
+
+    - use: Fel Healthstone
+      on: self
+      if: player.health_pct < 35
+
+    - use: Demonic Healthstone
+      on: self
+      if: player.health_pct < 35
+
+  pve_aoe:
+    # Seeds every enemy that doesn't have one.
+    - cast: Seed of Corruption
+      on: enemies
+      if: not unit.my_aura("Seed of Corruption") and unit.health_pct > 30
+
+  pve_st:
+    - cast: Life Tap
+      on: self
+      if: player.power_pct < 25 and player.health_pct > 50
+
+    # Shadow Trance (Nightfall) makes the next Shadow Bolt instant.
+    - cast: Shadow Bolt
+      if: player.aura("Shadow Trance")
+
+    - cast: Haunt
+
+    # 1.5 s cast: goes out that long before it would fall off.
+    - cast: Unstable Affliction
+      if: target.my_aura("Unstable Affliction").remains < 1.5 and target.health_pct > 15
+
+    - cast: Corruption
+      if: not target.my_aura("Corruption") and target.health_pct > 15
+
+    # Curse of the Elements on bosses (for the group), Curse of Agony otherwise.
+    - cast: Curse of the Elements
+      if: target.is_boss and not target.aura("Curse of the Elements", "Earth and Moon", "Ebon Plague")
+
+    - cast: Curse of Agony
+      if: not target.my_aura("Curse of Agony", "Curse of the Elements", "Curse of Doom", "Curse of Tongues", "Curse of Weakness", "Curse of Exhaustion") and target.health_pct > 15
+
+    # Execute range: Drain Soul does more damage below 25%.
+    - cast: Drain Soul
+      if: target.health_pct < 25
+
+    - cast: Shadow Bolt
+
+    - cast: Life Tap
+      on: self
+      if: player.moving and player.power_pct < 80 and player.health_pct > 60

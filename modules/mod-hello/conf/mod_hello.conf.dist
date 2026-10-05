@@ -1,0 +1,24 @@
+#
+# mod-hello configuration
+#
+# Installed to worldserver.conf.d/, which the worldserver loads after worldserver.conf.
+# Change settings in mod_hello.conf; mod_hello.conf.dist is replaced on every install.
+#
+
+# Settings must be in the [worldserver] section, like worldserver.conf.
+[worldserver]
+
+#
+#    Hello.Enable
+#        Description: Greet players on login and count their logins.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Hello.Enable = 1
+
+#
+#    Hello.Message
+#        Description: Message shown on login.
+#        Default:     "Hello from mod-hello!"
+
+Hello.Message = "Hello from mod-hello!"

@@ -1,0 +1,81 @@
+# Shaman, levelling. Used by every shaman until a spec profile applies: shaman_elemental.yml
+# (Elemental Mastery), shaman_enhancement.yml (Stormstrike) or shaman_restoration.yml (Mana Tide
+# Totem). Spells you haven't learned yet are skipped, so it works from level 1.
+#
+# A totem counts as gone once you are more than 30 yards from it, so moving on puts a new one down.
+
+name: Shaman Levelling
+class: shaman
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    - cast: Lightning Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Flametongue Weapon
+      on: self
+      if: not player.mainhand_enchanted
+
+    - cast: Rockbiter Weapon
+      on: self
+      if: not player.mainhand_enchanted
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Has a cast time, so it waits until you stand still.
+    - cast: Healing Wave
+      on: self
+      if: player.health_pct < 35
+
+    - cast: Cure Toxins
+      on: self
+      if: player.dispellable("poison") + player.dispellable("disease") >= 1
+
+  # Waits for the reaction delay. Earth Shock interrupts before you learn Wind Shear.
+  interrupts:
+    - cast: Wind Shear
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Earth Shock
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+  pve_aoe:
+    - cast: Magma Totem
+      on: self
+      if: not player.totem_fire and target.in_melee
+
+    - cast: Chain Lightning
+
+  pve_st:
+    - cast: Lightning Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Searing Totem
+      on: self
+      if: not player.totem_fire and target.distance < 20
+
+    - cast: Strength of Earth Totem
+      on: self
+      if: not player.totem_earth and target.distance < 20
+
+    - cast: Stormstrike
+
+    - cast: Flame Shock
+      if: target.my_aura("Flame Shock").remains < 1 and target.health_pct > 25
+
+    - cast: Earth Shock
+      if: target.health_pct < 30 or target.in_melee
+
+    - cast: Lava Lash
+
+    # Has a cast time, so it waits until you stand still.
+    - cast: Lightning Bolt
+      if: not target.in_melee or player.power_pct > 50

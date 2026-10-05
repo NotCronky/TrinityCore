@@ -1,0 +1,116 @@
+# Paladin, Protection (tank). The profile format and the condition language are described in the
+# README. Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Holy Shield. It has no pvp list, so PvP uses the PvE lists.
+
+name: Paladin Protection
+class: paladin
+requires: Holy Shield
+priority: 10
+auto_attack: true
+aoe_enemies: 2
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Righteous Fury
+      on: self
+      if: not player.aura("Righteous Fury")
+
+    - cast: Devotion Aura
+      on: self
+      if: not player.my_aura("Devotion Aura", "Retribution Aura", "Concentration Aura", "Crusader Aura")
+
+    - cast: Seal of Vengeance
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Corruption
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Righteousness
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Blessing of Sanctuary
+      on: self
+      if: not player.aura("Blessing of Sanctuary", "Greater Blessing of Sanctuary", "Blessing of Kings", "Greater Blessing of Kings")
+
+    - cast: Blessing of Kings
+      on: self
+      if: not player.aura("Blessing of Sanctuary", "Greater Blessing of Sanctuary", "Blessing of Kings", "Greater Blessing of Kings")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Lay on Hands
+      on: self
+      if: player.health_pct < 15 and not player.aura("Forbearance")
+
+    - cast: Divine Protection
+      on: self
+      if: player.health_pct < 35 and not player.aura("Forbearance")
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Hammer of Justice
+      if: target.casting and (pve or target.cast_heal or target.cast_cc)
+
+  pve_aoe:
+    - cast: Consecration
+    - cast: Hammer of the Righteous
+    - cast: Avenger's Shield
+    - cast: Holy Wrath
+
+  pve_st:
+    - cast: Righteous Fury
+      on: self
+      if: not player.aura("Righteous Fury")
+
+    - cast: Seal of Vengeance
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Corruption
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    - cast: Seal of Righteousness
+      on: self
+      if: not player.my_aura("Seal of Vengeance", "Seal of Corruption", "Seal of Command", "Seal of Righteousness", "Seal of Light", "Seal of Wisdom", "Seal of Justice")
+
+    # Taunt anything attacking another group member. Doesn't work on players.
+    - cast: Hand of Reckoning
+      on: enemies
+      if: unit.targeting_party and not unit.is_player
+
+    - cast: Holy Shield
+      on: self
+      if: player.my_aura("Holy Shield").remains < 1
+
+    - cast: Shield of Righteousness
+    - cast: Hammer of the Righteous
+
+    - cast: Consecration
+      if: target.in_melee
+
+    - cast: Judgement of Wisdom
+      if: player.power_pct < 60
+
+    - cast: Judgement of Light
+
+    - cast: Avenger's Shield
+
+    # The server only allows it below 20%.
+    - cast: Hammer of Wrath
+
+    - cast: Sacred Shield
+      on: self
+      if: not player.my_aura("Sacred Shield")
+
+    - cast: Divine Plea
+      on: self
+      if: player.power_pct < 70

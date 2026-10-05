@@ -1,0 +1,88 @@
+# Hunter, levelling. Used by every hunter until a spec profile applies: hunter_beast_mastery.yml
+# (Intimidation), hunter_marksmanship.yml (Aimed Shot) or hunter_survival.yml (Wyvern Sting).
+# Spells you haven't learned yet are skipped, so it works from level 1.
+#
+# Traps and Disengage are left out: traps need placing and Disengage moves you.
+
+name: Hunter Levelling
+class: hunter
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    # Call Pet brings a dismissed pet back; Revive Pet raises a dead one.
+    - cast: Call Pet
+      on: self
+      if: not pet.exists
+
+    - cast: Revive Pet
+      on: self
+      if: not pet.exists
+
+    # Keeps whichever aspect you picked (Cheetah, Pack, ...); only puts one up when you have none.
+    - cast: Aspect of the Dragonhawk
+      on: self
+      if: not player.my_aura("Aspect of the Dragonhawk", "Aspect of the Hawk", "Aspect of the Viper", "Aspect of the Monkey", "Aspect of the Cheetah", "Aspect of the Pack", "Aspect of the Wild", "Aspect of the Beast")
+
+    - cast: Aspect of the Hawk
+      on: self
+      if: not player.my_aura("Aspect of the Dragonhawk", "Aspect of the Hawk", "Aspect of the Viper", "Aspect of the Monkey", "Aspect of the Cheetah", "Aspect of the Pack", "Aspect of the Wild", "Aspect of the Beast")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Mend Pet
+      on: pet
+      if: pet.health_pct < 50 and not pet.my_aura("Mend Pet")
+
+    - cast: Deterrence
+      on: self
+      if: player.health_pct < 25 and player.attackers >= 1
+
+  pve_aoe:
+    - cast: Multi-Shot
+
+  pve_st:
+    # Auto Shot keeps running once started; the server keeps it off in melee range.
+    - cast: Auto Shot
+      if: not player.auto_repeat
+
+    # Viper for mana, back to Dragonhawk or Hawk once mana is high again.
+    - cast: Aspect of the Viper
+      on: self
+      if: player.power_pct < 10 and not player.my_aura("Aspect of the Viper")
+
+    - cast: Aspect of the Dragonhawk
+      on: self
+      if: player.power_pct > 70 and player.my_aura("Aspect of the Viper")
+
+    - cast: Aspect of the Hawk
+      on: self
+      if: player.power_pct > 70 and player.my_aura("Aspect of the Viper")
+
+    - cast: Hunter's Mark
+      if: not target.aura("Hunter's Mark") and (target.health_pct > 50 or target.is_boss)
+
+    # The server only allows it below 20%.
+    - cast: Kill Shot
+
+    - cast: Kill Command
+      on: self
+
+    - cast: Serpent Sting
+      if: target.my_aura("Serpent Sting").remains < 1 and target.health_pct > 25
+
+    - cast: Arcane Shot
+
+    # Has a cast time, so it waits until you stand still.
+    - cast: Steady Shot
+
+    # Something got into melee range.
+    - cast: Mongoose Bite
+    - cast: Raptor Strike
+
+    - cast: Wing Clip
+      if: target.in_melee and target.is_player and not target.my_aura("Wing Clip")

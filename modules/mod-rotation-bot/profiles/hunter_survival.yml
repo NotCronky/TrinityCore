@@ -1,0 +1,97 @@
+# Hunter, Survival. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Wyvern Sting.
+
+name: Hunter Survival
+class: hunter
+requires: Wyvern Sting
+priority: 10
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    - cast: Call Pet
+      on: self
+      if: not pet.exists
+
+    - cast: Revive Pet
+      on: self
+      if: not pet.exists
+
+    - cast: Aspect of the Dragonhawk
+      on: self
+      if: not player.my_aura("Aspect of the Dragonhawk", "Aspect of the Hawk", "Aspect of the Viper", "Aspect of the Monkey", "Aspect of the Cheetah", "Aspect of the Pack", "Aspect of the Wild", "Aspect of the Beast")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Mend Pet
+      on: pet
+      if: pet.health_pct < 50 and not pet.my_aura("Mend Pet")
+
+    - cast: Deterrence
+      on: self
+      if: player.health_pct < 25 and player.attackers >= 1
+
+  # Waits for the reaction delay. Wyvern Sting puts the target to sleep; damage wakes it.
+  interrupts:
+    - cast: Wyvern Sting
+      if: pvp and target.casting and (target.cast_heal or target.cast_cc)
+
+    - cast: Wyvern Sting
+      on: enemy_players
+      if: unit.casting and (unit.cast_heal or unit.cast_cc) and unit.dr("Wyvern Sting") == 0
+
+  pve_aoe:
+    - cast: Multi-Shot
+
+  pve_st:
+    - cast: Auto Shot
+      if: not player.auto_repeat
+
+    - cast: Aspect of the Viper
+      on: self
+      if: player.power_pct < 10 and not player.my_aura("Aspect of the Viper")
+
+    - cast: Aspect of the Dragonhawk
+      on: self
+      if: player.power_pct > 70 and player.my_aura("Aspect of the Viper")
+
+    - cast: Hunter's Mark
+      if: not target.aura("Hunter's Mark") and (target.health_pct > 50 or target.is_boss or target.is_player)
+
+    - cast: Rapid Fire
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Kill Shot
+
+    # Lock and Load makes the next two Explosive Shots free and resets its cooldown.
+    - cast: Explosive Shot
+      if: not target.my_aura("Explosive Shot")
+
+    - cast: Black Arrow
+
+    - cast: Serpent Sting
+      if: target.my_aura("Serpent Sting").remains < 1 and target.health_pct > 25
+
+    - cast: Aimed Shot
+
+    - cast: Multi-Shot
+      if: target.enemies(8) >= 2
+
+    - cast: Steady Shot
+
+    - cast: Mongoose Bite
+    - cast: Raptor Strike
+
+    - cast: Wing Clip
+      if: target.in_melee and target.is_player and not target.my_aura("Wing Clip")

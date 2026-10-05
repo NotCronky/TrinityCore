@@ -1,0 +1,102 @@
+# Warrior, levelling. Used by every warrior until a spec profile applies (warrior_arms.yml once
+# you know Mortal Strike). Spells you haven't learned yet are skipped, so it works from level 1.
+
+name: Warrior Levelling
+class: warrior
+auto_attack: true
+aoe_enemies: 2
+aoe_radius: 8
+
+lists:
+  defensives:
+    # Breaks fear.
+    - cast: Berserker Rage
+      on: self
+      if: player.feared
+
+    # Break hard crowd control that would last a while. Every Man for Himself (humans) and the PvP
+    # trinket share a cooldown; Will of the Forsaken (undead) only breaks fear, charm and sleep.
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Whichever equipped trinket is a PvP trinket (Medallion, Insignia, ...).
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+  # Waits for the reaction delay, like in the Arms profile. No stance dance while levelling:
+  # Shield Bash needs a shield, Pummel needs you to be in Berserker Stance already.
+  interrupts:
+    - cast: Shield Bash
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Pummel
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+  pvp:
+    # Charge moves you. The server only allows it out of combat at these levels.
+    - cast: Charge
+
+    - cast: Victory Rush
+
+    - cast: Hamstring
+      if: target.is_player and target.my_aura("Hamstring").remains < 1 and not target.aura("Hand of Freedom")
+
+    - cast: Rend
+      if: target.my_aura("Rend").remains < 1
+
+    - cast: Overpower
+    - cast: Execute
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout")
+
+    - cast: Heroic Strike
+      if: player.power >= 50
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50
+
+  # Levelling pulls are often two or three mobs, so AoE starts at 2 here.
+  pve_aoe:
+    - cast: Thunder Clap
+
+    - cast: Sweeping Strikes
+      on: self
+
+    - cast: Cleave
+      if: player.power >= 30
+
+  pve_st:
+    # Only to open a pull.
+    - cast: Charge
+      if: not player.in_combat
+
+    # Free damage and healing after a killing blow.
+    - cast: Victory Rush
+
+    # Not worth it on a mob that is about to die.
+    - cast: Rend
+      if: target.my_aura("Rend").remains < 1 and target.health_pct > 30
+
+    - cast: Overpower
+    - cast: Execute
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout") and not player.aura("Blessing of Might") and not player.aura("Greater Blessing of Might")
+
+    # Less rage comes in while levelling, so the dump starts lower than in the Arms profile.
+    - cast: Heroic Strike
+      if: player.power >= 40
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50

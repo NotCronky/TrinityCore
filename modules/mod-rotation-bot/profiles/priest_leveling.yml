@@ -1,0 +1,61 @@
+# Priest, levelling. Used by every priest until a spec profile applies: priest_discipline.yml
+# (Power Infusion), priest_holy.yml (Circle of Healing) or priest_shadow.yml (Shadowform). Spells
+# you haven't learned yet are skipped, so it works from level 1.
+#
+# Solo damage with self-healing. Spells with a cast time wait until you stand still.
+
+name: Priest Levelling
+class: priest
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: 'Power Word: Fortitude'
+      on: self
+      if: 'not player.aura("Power Word: Fortitude", "Prayer of Fortitude")'
+
+    - cast: Inner Fire
+      on: self
+      if: not player.my_aura("Inner Fire")
+
+  defensives:
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: 'Power Word: Shield'
+      on: self
+      if: player.health_pct < 70 and not player.aura("Weakened Soul") and player.attackers >= 1
+
+    - cast: Psychic Scream
+      if: player.health_pct < 35 and target.distance < 8 and target.dr("Psychic Scream") == 0
+
+    - cast: Flash Heal
+      on: self
+      if: player.health_pct < 40
+
+    - cast: Renew
+      on: self
+      if: player.health_pct < 70 and not player.my_aura("Renew")
+
+    - cast: Fade
+      on: self
+      if: pve and target.targeting_me and party_below(101) > 1
+
+  pve_aoe:
+    - cast: Holy Nova
+      if: enemies(10) >= 3 and player.power_pct > 40
+
+  pve_st:
+    - cast: 'Shadow Word: Pain'
+      if: 'target.my_aura("Shadow Word: Pain").remains < 1 and target.health_pct > 25'
+
+    - cast: Mind Blast
+    - cast: 'Shadow Word: Death'
+      if: target.health_pct < 20
+
+    # Channelled; it waits until you stand still.
+    - cast: Mind Flay
+
+    - cast: Smite

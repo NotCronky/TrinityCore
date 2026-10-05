@@ -1,0 +1,101 @@
+# Priest, Shadow. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Shadowform. Spells with a cast time and channels wait until you stand still.
+
+name: Priest Shadow
+class: priest
+requires: Shadowform
+priority: 10
+aoe_enemies: 4
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: 'Power Word: Fortitude'
+      on: self
+      if: 'not player.aura("Power Word: Fortitude", "Prayer of Fortitude")'
+
+    - cast: Inner Fire
+      on: self
+      if: not player.my_aura("Inner Fire")
+
+    - cast: Shadowform
+      on: self
+      if: not player.aura("Shadowform")
+
+    - cast: Vampiric Embrace
+      on: self
+      if: not player.my_aura("Vampiric Embrace")
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Dispersion
+      on: self
+      if: player.health_pct < 20 or player.power_pct < 10
+
+    - cast: 'Power Word: Shield'
+      on: self
+      if: player.health_pct < 70 and not player.aura("Weakened Soul") and player.attackers >= 1
+
+    - cast: Psychic Scream
+      if: pvp and player.health_pct < 50 and target.distance < 8 and target.dr("Psychic Scream") == 0
+
+    - cast: Shadowform
+      on: self
+      if: not player.aura("Shadowform")
+
+    # In a group, drop threat when the enemy turns on you.
+    - cast: Fade
+      on: self
+      if: pve and target.targeting_me and party_below(101) > 1
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Silence
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Silence
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    # Channelled at the target, hitting everything around it.
+    - cast: Mind Sear
+      if: target.enemies(10) >= 4
+
+  pve_st:
+    - cast: Shadowfiend
+      if: player.power_pct < 50
+
+    # Vampiric Touch has a 1.5 s cast, so it goes out that long before it would fall off.
+    - cast: Vampiric Touch
+      if: target.my_aura("Vampiric Touch").remains < 1.5 and target.health_pct > 15
+
+    - cast: Devouring Plague
+      if: target.my_aura("Devouring Plague").remains < 1 and target.health_pct > 15
+
+    - cast: 'Shadow Word: Pain'
+      if: 'target.my_aura("Shadow Word: Pain").remains < 1 and target.health_pct > 15'
+
+    - cast: Mind Blast
+
+    # Instant: for finishing, and while moving.
+    - cast: 'Shadow Word: Death'
+      if: target.health_pct < 20 or player.moving
+
+    - cast: Psychic Horror
+      if: pvp and target.dr("Psychic Horror") == 0 and burst
+
+    - cast: Mind Flay

@@ -1,0 +1,84 @@
+# Rogue, Subtlety. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Hemorrhage. Poisons aren't applied for you. Openers need stealth or
+# Shadow Dance: press ".rot next" from stealth. Shadowstep and Vanish are left out.
+
+name: Rogue Subtlety
+class: rogue
+requires: Hemorrhage
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Cloak of Shadows
+      on: self
+      if: player.dispellable("magic") >= 1 and (pvp or player.health_pct < 50)
+
+    - cast: Evasion
+      on: self
+      if: player.health_pct < 40 and player.attackers >= 1
+
+    - cast: Kidney Shot
+      if: pvp and player.health_pct < 35 and player.combo_points >= 3 and target.dr("Kidney Shot") == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Kick
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Kick
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    - cast: Fan of Knives
+
+  pve_st:
+    # Shadow Dance lets you use the stealth openers for a few seconds.
+    - cast: Shadow Dance
+      on: self
+      if: burst
+
+    - cast: Premeditation
+    - cast: Cheap Shot
+      if: pvp
+
+    - cast: Ambush
+      if: target.behind
+
+    - cast: Garrote
+
+    - cast: Slice and Dice
+      on: self
+      if: player.combo_points >= 1 and player.my_aura("Slice and Dice").remains < 1
+
+    - cast: Rupture
+      if: player.combo_points >= 5 and target.my_aura("Rupture").remains < 1 and (target.is_boss or target.is_player)
+
+    - cast: Eviscerate
+      if: player.combo_points >= 5
+
+    - cast: Tricks of the Trade
+      on: party
+      if: unit.most_attacked and burst
+
+    # Keeps Hemorrhage's debuff up; Backstab from behind otherwise.
+    - cast: Hemorrhage
+      if: not target.my_aura("Hemorrhage") or not target.behind
+
+    - cast: Backstab
+      if: target.behind
+
+    - cast: Hemorrhage

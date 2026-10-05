@@ -1,0 +1,216 @@
+# Warrior, Arms. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Mortal Strike; before that, warrior_leveling.yml is used.
+
+name: Warrior Arms
+class: warrior
+requires: Mortal Strike
+priority: 10
+auto_attack: true
+aoe_enemies: 2
+aoe_radius: 8
+
+lists:
+  # Tried first every tick, in every mode.
+  defensives:
+    # Breaks fear.
+    - cast: Berserker Rage
+      on: self
+      if: player.feared
+
+    # Break hard crowd control that would last a while. Every Man for Himself (humans) and the PvP
+    # trinket share a cooldown; Will of the Forsaken (undead) only breaks fear, charm and sleep.
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Whichever equipped trinket is a PvP trinket (Medallion, Insignia, ...).
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    # Peel: fears the target and anyone else close. Only at full diminishing returns, so it lasts;
+    # the server's diminishing returns immunity is skipped automatically anyway.
+    - cast: Intimidating Shout
+      if: pvp and player.health_pct < 30 and target.in_melee and target.dr("Intimidating Shout") == 0
+
+    # Needs an enrage effect; the server refuses it without one.
+    - cast: Enraged Regeneration
+      on: self
+      if: player.health_pct < 40
+
+    # Provides the enrage for Enraged Regeneration.
+    - cast: Berserker Rage
+      on: self
+      if: player.health_pct < 40 and known("Enraged Regeneration") and cooldown("Enraged Regeneration") == 0
+
+    - cast: Retaliation
+      on: self
+      if: player.health_pct < 60 and enemies(5) >= 2
+
+  # Tried after defensives, and only once the reaction delay for the target's cast has passed
+  # (RotationBot.InterruptDelayMinMs/MaxMs; a ".rot next" press doesn't wait). In PvP only heals
+  # and crowd control are worth a kick; in PvE everything interruptible is.
+  interrupts:
+    # Needs a shield, which the server checks.
+    - cast: Shield Bash
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    # Needs Berserker Stance; the entry below gets you there.
+    - cast: Pummel
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    # Healers and crowd control casters you don't have targeted. The kick goes to whoever is
+    # casting, lowest health first; the debug trace names them.
+    - cast: Shield Bash
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+    - cast: Pummel
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+    # Stance dance: rage above what Tactical Mastery keeps is lost on the swap. The pvp and pve_st
+    # lists swap back to Battle Stance as soon as the kick isn't wanted any more: Pummel went out,
+    # or the cast ended before it could.
+    - cast: Berserker Stance
+      on: self
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc) and target.in_melee and known("Pummel") and cooldown("Pummel") == 0 and player.power >= 10 and not player.aura("Berserker Stance")
+
+  pvp:
+    # Back to Battle Stance (Overpower, Rend) unless a kick from the stance dance is still pending.
+    - cast: Battle Stance
+      on: self
+      if: player.aura("Berserker Stance") and not (target.cast_interruptible and (pve or target.cast_heal or target.cast_cc) and cooldown("Pummel") == 0)
+
+    # Charge moves you. The server decides when it's usable: Battle Stance, 8-25 yards, and out
+    # of combat unless you have Juggernaut or Warbringer.
+    - cast: Charge
+
+    # Off the global cooldown. Generates rage while you take damage; breaking fear is in defensives.
+    - cast: Berserker Rage
+      on: self
+      if: player.power < 30
+
+    - cast: Victory Rush
+      if: player.health_pct < 80
+
+    # Removes Divine Shield, Hand of Protection and Ice Block. Has a 1.5 s cast, so it waits until
+    # you stand still.
+    - cast: Shattering Throw
+      if: target.aura("Divine Shield") or target.aura("Hand of Protection") or target.aura("Ice Block")
+
+    # Kill window: another enemy player within reach is nearly dead while your target is healthy.
+    # Your selection stays on your target; only this ability goes to the other player.
+    - cast: Execute
+      on: enemy_players
+      if: unit.health_pct < 20 and target.health_pct > 20
+
+    - cast: Mortal Strike
+      on: enemy_players
+      if: unit.health_pct < 25 and target.health_pct > 50
+
+    # The rotation never chases, so keep players slowed.
+    - cast: Hamstring
+      if: target.is_player and target.my_aura("Hamstring").remains < 1 and not target.aura("Hand of Freedom")
+
+    # 3.3.5a has no pandemic window: refreshing early throws the time left away, so refresh only in
+    # the last second. Rend ticking also lets Taste for Blood proc.
+    - cast: Rend
+      if: target.my_aura("Rend").remains < 1
+
+    - cast: Mortal Strike
+
+    # The server only allows Overpower after a dodge or with Taste for Blood, and Execute below 20%
+    # or with Sudden Death, so neither needs a condition. Overpower goes first: it costs 5 rage and
+    # its window is short, while Execute spends all your rage.
+    - cast: Overpower
+    - cast: Execute
+
+    - cast: Bladestorm
+      on: self
+      if: burst and enemies(8) >= 2
+
+    - cast: Sweeping Strikes
+      on: self
+      if: enemies(8) >= 2
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout")
+
+    # Heroic Strike and Cleave are on the next swing and off the global cooldown: rage dumps.
+    - cast: Cleave
+      if: player.power >= 60 and target.enemies(8) >= 2
+
+    - cast: Heroic Strike
+      if: player.power >= 60
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50
+
+  # Tried before pve_st while AoE is on (3+ enemies within 8 yards of the target, none of them in
+  # crowd control that damage would break). Whatever it leaves, pve_st fills.
+  pve_aoe:
+    - cast: Sweeping Strikes
+      on: self
+
+    - cast: Bladestorm
+      on: self
+      if: burst
+
+    - cast: Thunder Clap
+      if: player.power >= 30
+
+    - cast: Cleave
+      if: player.power >= 50 and target.threat_pct < 90
+
+  pve_st:
+    # Back to Battle Stance (Overpower, Rend) unless a kick from the stance dance is still pending.
+    - cast: Battle Stance
+      on: self
+      if: player.aura("Berserker Stance") and not (target.cast_interruptible and (pve or target.cast_heal or target.cast_cc) and cooldown("Pummel") == 0)
+
+    # Only to open a pull; see the Charge note in the pvp list.
+    - cast: Charge
+      if: not player.in_combat
+
+    - cast: Berserker Rage
+      on: self
+      if: player.power < 30
+
+    - cast: Rend
+      if: target.my_aura("Rend").remains < 1
+
+    - cast: Mortal Strike
+    - cast: Overpower
+    - cast: Execute
+
+    - cast: Bladestorm
+      on: self
+      if: burst
+
+    - cast: Victory Rush
+
+    # Filler. Keeps enough rage back for Mortal Strike. It has a cast time, so it is skipped while
+    # you move.
+    - cast: Slam
+      if: player.power >= 30
+
+    - cast: Battle Shout
+      on: self
+      if: not player.aura("Battle Shout") and not player.aura("Blessing of Might") and not player.aura("Greater Blessing of Might")
+
+    # Rage dump. Held back near the top of the threat list (threat_pct is -1 without one).
+    - cast: Heroic Strike
+      if: player.power >= 60 and target.threat_pct < 90
+
+    - cast: Bloodrage
+      on: self
+      if: player.power < 20 and player.health_pct > 50

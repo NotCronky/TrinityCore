@@ -1,0 +1,120 @@
+# Shaman, Enhancement. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Stormstrike.
+
+name: Shaman Enhancement
+class: shaman
+requires: Stormstrike
+priority: 10
+auto_attack: true
+aoe_enemies: 3
+aoe_radius: 8
+
+lists:
+  precombat:
+    - cast: Lightning Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    # Windfury on the main hand, then Flametongue: a second imbue goes on the off hand.
+    - cast: Windfury Weapon
+      on: self
+      if: not player.mainhand_enchanted
+
+    - cast: Flametongue Weapon
+      on: self
+      if: player.mainhand_enchanted and not player.offhand_enchanted
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Shamanistic Rage
+      on: self
+      if: player.health_pct < 50 or player.power_pct < 30
+
+    # Maelstrom Weapon at 5 stacks makes Healing Wave instant.
+    - cast: Healing Wave
+      on: self
+      if: player.health_pct < 40 and player.aura("Maelstrom Weapon").stacks >= 5
+
+    - cast: Cleanse Spirit
+      on: self
+      if: pvp and player.dispellable("curse") + player.dispellable("poison") + player.dispellable("disease") >= 1
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Wind Shear
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Wind Shear
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    - cast: Magma Totem
+      on: self
+      if: not player.totem_fire
+
+    # Needs a fire totem up, which the server checks.
+    - cast: Fire Nova
+      on: self
+
+    - cast: Chain Lightning
+      if: player.aura("Maelstrom Weapon").stacks >= 5
+
+  pve_st:
+    - cast: Call of the Elements
+      on: self
+      if: not player.totem_fire and not player.totem_earth and not player.totem_water and not player.totem_air
+
+    - cast: Searing Totem
+      on: self
+      if: not player.totem_fire and target.distance < 20
+
+    - cast: Windfury Totem
+      on: self
+      if: not player.totem_air
+
+    - cast: Strength of Earth Totem
+      on: self
+      if: not player.totem_earth
+
+    - cast: Mana Spring Totem
+      on: self
+      if: not player.totem_water
+
+    - cast: Lightning Shield
+      on: self
+      if: not player.my_aura("Lightning Shield", "Water Shield")
+
+    - cast: Feral Spirit
+      on: self
+      if: burst
+
+    - cast: Purge
+      if: pvp and target.dispellable("magic") >= 1
+
+    # Maelstrom Weapon at 5 stacks makes Lightning Bolt instant.
+    - cast: Lightning Bolt
+      if: player.aura("Maelstrom Weapon").stacks >= 5
+
+    - cast: Stormstrike
+
+    - cast: Flame Shock
+      if: target.my_aura("Flame Shock").remains < 1
+
+    - cast: Earth Shock
+      if: target.my_aura("Flame Shock").remains > 4
+
+    - cast: Lava Lash

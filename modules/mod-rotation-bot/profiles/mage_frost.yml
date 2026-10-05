@@ -1,0 +1,122 @@
+# Mage, Frost. The profile format and the condition language are described in the README.
+# Edit this file and type ".rot reload" in game to apply the changes.
+#
+# Applies once you know Icy Veins. Spells with a cast time wait until you stand still.
+
+name: Mage Frost
+class: mage
+requires: Icy Veins
+priority: 10
+aoe_enemies: 3
+aoe_radius: 10
+
+lists:
+  precombat:
+    - cast: Arcane Intellect
+      on: self
+      if: not player.aura("Arcane Intellect", "Arcane Brilliance", "Dalaran Intellect", "Dalaran Brilliance")
+
+    - cast: Molten Armor
+      on: self
+      if: not player.my_aura("Molten Armor", "Mage Armor", "Ice Armor", "Frost Armor")
+
+    - cast: Ice Armor
+      on: self
+      if: not player.my_aura("Molten Armor", "Mage Armor", "Ice Armor", "Frost Armor")
+
+    - cast: Summon Water Elemental
+      on: self
+      if: not pet.exists
+
+  defensives:
+    - cast: Every Man for Himself
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Will of the Forsaken
+      on: self
+      if: pvp and player.feared and player.cc_remains > 2
+
+    - use: pvp_trinket
+      on: self
+      if: pvp and player.hard_cc and player.cc_remains > 2
+
+    - cast: Ice Block
+      on: self
+      if: player.health_pct < 15 and not player.aura("Hypothermia")
+
+    # Resets Ice Block (and the rest) when it is on cooldown.
+    - cast: Cold Snap
+      on: self
+      if: player.health_pct < 25 and cooldown("Ice Block") > 0 and not player.aura("Hypothermia")
+
+    - cast: Ice Barrier
+      on: self
+      if: not player.my_aura("Ice Barrier") and (player.attackers >= 1 or pvp)
+
+    - cast: Frost Nova
+      on: self
+      if: player.attackers >= 1 and target.in_melee and target.dr("Frost Nova") == 0
+
+    - use: Mana Sapphire
+      on: self
+      if: player.power_pct < 70
+
+    - use: Mana Emerald
+      on: self
+      if: player.power_pct < 70
+
+    - cast: Evocation
+      on: self
+      if: player.power_pct < 15 and player.attackers == 0
+
+  # Waits for the reaction delay.
+  interrupts:
+    - cast: Counterspell
+      if: target.cast_interruptible and (pve or target.cast_heal or target.cast_cc)
+
+    - cast: Counterspell
+      on: enemy_players
+      if: unit.cast_interruptible and (unit.cast_heal or unit.cast_cc)
+
+  pve_aoe:
+    # Ground-targeted: lands at the target's feet. Channelled.
+    - cast: Blizzard
+
+    - cast: Cone of Cold
+      if: target.in_melee
+
+  pve_st:
+    - cast: Summon Water Elemental
+      on: self
+      if: not pet.exists
+
+    - cast: Icy Veins
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Mirror Image
+      on: self
+      if: burst and (target.is_boss or target.is_player)
+
+    - cast: Spellsteal
+      if: pvp and target.dispellable("magic") >= 1
+
+    # The server only allows Deep Freeze on a frozen target (or with Fingers of Frost).
+    - cast: Deep Freeze
+
+    # Brain Freeze's proc buff is called "Fireball!": an instant Frostfire Bolt.
+    - cast: Frostfire Bolt
+      if: player.aura("Fireball!")
+
+    # Fingers of Frost makes the target count as frozen for Ice Lance.
+    - cast: Ice Lance
+      if: player.aura("Fingers of Frost") or target.rooted
+
+    - cast: Frostbolt
+
+    - cast: Ice Lance
+      if: player.moving
+
+    - cast: Fire Blast
+      if: player.moving
