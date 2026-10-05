@@ -1,0 +1,20 @@
+#
+# mod-bots configuration
+#
+# Installed to worldserver.conf.d/, which the worldserver loads after worldserver.conf.
+# Change settings in mod_bots.conf; mod_bots.conf.dist is replaced on every install.
+#
+
+# Settings must be in the [worldserver] section, like worldserver.conf.
+[worldserver]
+
+###################################################################################################
+# mod-bots
+#
+#    Bots.Enable
+#        Description: Player bots. Turning it off with ".reload config" logs every bot out.
+#        Default:     1 - Enabled
+#                     0 - Disabled
+#
+
+Bots.Enable = 1
