@@ -13,7 +13,9 @@
 #include <unordered_map>
 #include <vector>
 
+class Battleground;
 class Player;
+struct MapEntry;
 
 struct ProgressionPatch
 {
@@ -68,6 +70,21 @@ public:
 
     bool RequireLevelCapToAdvance() const { return _requireLevelCapToAdvance; }
 
+    // The patch a map arrived in, or nullptr when it is open from the first patch.
+    ProgressionPatch const* GetMapPatch(uint32 mapId) const;
+    // The patch that is required to enter the map, queue for the battleground, or use the Dungeon
+    // Finder's dungeon; nullptr when every character may.
+    ProgressionPatch const* GetRequiredPatch(Player const* player, uint32 mapId) const;
+    ProgressionPatch const* GetRequiredPatch(Player const* player, Battleground const* bg) const;
+    ProgressionPatch const* GetRequiredDungeonFinderPatch(Player const* player, uint32 dungeonId, uint32 mapId) const;
+
+    // Tells the player which patch something needs.
+    void SendRequiresPatch(Player const* player, std::string const& what, ProgressionPatch const& required) const;
+
+    // Moves a character that is somewhere its patch doesn't allow (after logging in, or after a game
+    // master moved it to an earlier patch) to its hearthstone location, or its race's starting point.
+    void EnsureAllowedLocation(Player* player) const;
+
     // Gives a character without a patch its starting one.
     void OnLogin(Player* player, bool firstLogin) const;
 
@@ -76,18 +93,23 @@ private:
 
     // Turns the config's patch versions into patch ids; needs the patches loaded.
     void ResolveConfig();
+    void LoadMaps();
+    // A later required patch than the character's effective one, or nullptr.
+    ProgressionPatch const* CheckPatch(Player const* player, ProgressionPatch const* required) const;
 
     bool _enabled = true;
     std::string _serverCapVersion;
     std::string _startVersion;
     std::string _existingCharacterVersion;
     bool _requireLevelCapToAdvance = false;
+    bool _dungeonFinderEveryPatch = true;
 
     uint8 _serverCapId = 0;
     uint8 _startId = 0;
     uint8 _existingCharacterId = 0;
 
     std::vector<ProgressionPatch> _patches; // Ordered by id
+    std::unordered_map<uint32, uint8> _mapPatches; // Map id -> patch id
 };
 
 #define sProgressionMgr ProgressionMgr::Instance()

@@ -5,7 +5,10 @@
 #include "ProgressionMgr.h"
 
 #include "Chat.h"
+#include "Battleground.h"
 #include "ChatCommand.h"
+#include "DBCStores.h"
+#include "LFG.h"
 #include "GameTime.h"
 #include "Player.h"
 #include "RBAC.h"
@@ -261,6 +264,7 @@ public:
         Player* target = player->GetConnectedPlayer();
         sProgressionMgr.SetCharacterPatch(target, *patch);
         target->SaveToDB();
+        sProgressionMgr.EnsureAllowedLocation(target);
         PendingAdvances.erase(target->GetGUID());
 
         Send(handler, Trinity::StringFormat("{} is now in patch {}.", target->GetName(), Describe(*patch)));
@@ -329,6 +333,42 @@ public:
         if (ProgressionPatch const* patch = sProgressionMgr.GetEffectivePatch(player))
             if (player->GetLevel() >= patch->LevelCap)
                 amount = 0;
+    }
+
+    // Every map change: continents and instances from a later patch are closed. Battleground and arena
+    // maps are left to CanJoinBattleground, so a queue never pops into a map that can't be entered.
+    bool CanEnterMap(Player* player, MapEntry const* map) override
+    {
+        if (!sProgressionMgr.IsEnabled() || map->IsBattlegroundOrArena())
+            return true;
+
+        ProgressionPatch const* required = sProgressionMgr.GetRequiredPatch(player, map->ID);
+        if (!required)
+            return true;
+
+        sProgressionMgr.SendRequiresPatch(player, map->MapName[player->GetSession()->GetSessionDbcLocale()], *required);
+        return false;
+    }
+
+    bool CanJoinBattleground(Player const* player, Battleground const* bg) override
+    {
+        if (!sProgressionMgr.IsEnabled())
+            return true;
+
+        ProgressionPatch const* required = sProgressionMgr.GetRequiredPatch(player, bg);
+        if (!required)
+            return true;
+
+        sProgressionMgr.SendRequiresPatch(player, bg->isArena() ? "Arena" : bg->GetName(), *required);
+        return false;
+    }
+
+    // Dungeons from a later patch show as not available in the Dungeon Finder, and random dungeons
+    // only pick from the ones that are.
+    void OnLfgDungeonLockStatus(Player const* player, uint32 dungeonId, uint32 mapId, uint32& lockStatus) override
+    {
+        if (sProgressionMgr.IsEnabled() && sProgressionMgr.GetRequiredDungeonFinderPatch(player, dungeonId, mapId))
+            lockStatus = lfg::LFG_LOCKSTATUS_NOT_IN_SEASON;
     }
 
     void OnLevelChanged(Player* player, uint8 /*oldLevel*/) override

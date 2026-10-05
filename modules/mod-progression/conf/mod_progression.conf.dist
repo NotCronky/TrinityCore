@@ -56,3 +56,14 @@ Progression.ExistingCharacterPatch = "3.3.5"
 #
 
 Progression.RequireLevelCapToAdvance = 0
+
+#
+#    Progression.DungeonFinderEveryPatch
+#        Description: The Dungeon Finder arrived in 3.3. Characters in any patch can use it for the
+#                     dungeons their patch has; with 0, only characters in 3.3 or later can, like live.
+#                     Random battlegrounds and random dungeons need 3.3 either way.
+#        Default:     1 - Every patch
+#                     0 - From 3.3
+#
+
+Progression.DungeonFinderEveryPatch = 1

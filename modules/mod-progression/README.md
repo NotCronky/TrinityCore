@@ -3,9 +3,8 @@
 Each character plays in a patch of its own, from Vanilla 1.1 to WotLK 3.3.5, and moves to the next one
 when the player chooses. The full design is in [doc/PROGRESSION_SYSTEM_PLAN.md](../../doc/PROGRESSION_SYSTEM_PLAN.md).
 
-Status: **phase 1**. Characters have a patch and a level cap, and players move through the patches
-with `.patch`. Patch content isn't restricted yet: raids, zones, quests, vendors and the rest are
-phases 2 and 3.
+Status: **phase 2**. Characters have a patch and a level cap, players move through the patches with
+`.patch`, and maps from later patches are closed. Quests, NPCs, vendors and loot by patch are phase 3.
 
 ## What it does now
 
@@ -18,6 +17,17 @@ phases 2 and 3.
 - **The player chooses when to move on**, and only forward. Before moving, `.patch next` lists what
   each patch on the way adds and what ends, and the move happens only when confirmed.
 - **Server cap.** `Progression.ServerCap` limits everyone, e.g. while later patches aren't ready.
+- **Maps from later patches are closed** (`progression_map`: 69 maps). Raids, dungeons, Outland
+  (with Eversong and Azuremyst) and Northrend can't be entered by any route: portals, instance entrances,
+  boats and zeppelins, summons, hearthstones. The player is told which patch the map needs.
+- **Battlegrounds and arenas:** each battleground needs the patch of its map (Alterac Valley and Warsong
+  Gulch 1.5, Arathi Basin 1.7, Eye of the Storm 2.0, Strand of the Ancients 3.1, Isle of Conquest 3.2);
+  arenas need the first patch with an arena season (2.0); random battlegrounds need 3.3.
+- **Dungeon Finder:** dungeons from later patches show as not available, and random dungeons need 3.3.
+  `Progression.DungeonFinderEveryPatch = 0` closes the Dungeon Finder before 3.3 entirely, like live.
+- **A character somewhere its patch doesn't allow** (after logging in, or after `.patch set` moved it
+  back) is sent to its hearthstone location, or its race's starting point if that is closed too.
+- Game masters (with GM mode on) are never limited.
 
 ## Commands
 
@@ -32,6 +42,14 @@ phases 2 and 3.
 | `.patch reload` | Administrators | Reads `progression_patch` again |
 
 Versions are written as in `.patch list`: `1.1` ... `1.12`, `2.0` ... `2.4`, `3.0` ... `3.3.5`.
+
+## Core hooks
+
+Each is marked `// MODULE HOOK`: `PlayerScript::CanEnterMap` (in `Player::TeleportTo`, refused like a
+missing expansion), `PlayerScript::CanJoinBattleground` (in `Player::CanJoinToBattleground`, used for
+solo, group and arena queues) and `PlayerScript::OnLfgDungeonLockStatus` (in `LFGMgr::GetLockedDungeons`).
+Battleground and arena maps are left to the queue check, so a queue never pops into a map that can't be
+entered.
 
 ## How a character's patch is stored
 

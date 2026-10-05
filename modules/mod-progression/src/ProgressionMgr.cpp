@@ -4,14 +4,26 @@
 
 #include "ProgressionMgr.h"
 
+#include "Battleground.h"
+#include "Chat.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "DBCStores.h"
+#include "LFGMgr.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "SharedDefines.h"
+#include "StringFormat.h"
+#include "WorldSession.h"
 
 #include <algorithm>
+
+namespace
+{
+    // Random battlegrounds and the Dungeon Finder's random dungeons arrived in 3.3.
+    constexpr char const* RANDOM_QUEUES_VERSION = "3.3";
+}
 
 std::string ProgressionPatch::Title() const
 {
@@ -31,6 +43,7 @@ void ProgressionMgr::LoadConfig()
     _startVersion = sConfigMgr->GetStringDefault("Progression.StartPatch", "1.1");
     _existingCharacterVersion = sConfigMgr->GetStringDefault("Progression.ExistingCharacterPatch", "3.3.5");
     _requireLevelCapToAdvance = sConfigMgr->GetBoolDefault("Progression.RequireLevelCapToAdvance", false);
+    _dungeonFinderEveryPatch = sConfigMgr->GetBoolDefault("Progression.DungeonFinderEveryPatch", true);
 
     if (!_patches.empty())
         ResolveConfig();
@@ -77,9 +90,120 @@ bool ProgressionMgr::LoadPatches()
 
     _patches = std::move(patches);
     ResolveConfig();
+    LoadMaps();
 
     TC_LOG_INFO("module", "mod-progression: loaded {} patches, server cap {}.", _patches.size(), GetServerCap()->Version);
     return true;
+}
+
+void ProgressionMgr::LoadMaps()
+{
+    _mapPatches.clear();
+
+    QueryResult result = WorldDatabase.Query("SELECT `map`, `patch` FROM `progression_map`");
+    if (!result)
+    {
+        TC_LOG_ERROR("module", "mod-progression: the progression_map table is missing or empty; maps aren't limited by patch.");
+        return;
+    }
+
+    do
+    {
+        Field* fields = result->Fetch();
+        uint32 mapId = fields[0].GetUInt32();
+        uint8 patchId = fields[1].GetUInt8();
+        if (!sMapStore.LookupEntry(mapId) || !GetPatch(patchId))
+        {
+            TC_LOG_ERROR("module", "mod-progression: progression_map has map {} with patch {}; one of them doesn't exist, skipped.",
+                mapId, patchId);
+            continue;
+        }
+
+        _mapPatches[mapId] = patchId;
+    } while (result->NextRow());
+}
+
+ProgressionPatch const* ProgressionMgr::GetMapPatch(uint32 mapId) const
+{
+    auto itr = _mapPatches.find(mapId);
+    return itr != _mapPatches.end() ? GetPatch(itr->second) : nullptr;
+}
+
+ProgressionPatch const* ProgressionMgr::CheckPatch(Player const* player, ProgressionPatch const* required) const
+{
+    if (!required || player->IsGameMaster())
+        return nullptr;
+
+    ProgressionPatch const* patch = GetEffectivePatch(player);
+    return patch && required->Id > patch->Id ? required : nullptr;
+}
+
+ProgressionPatch const* ProgressionMgr::GetRequiredPatch(Player const* player, uint32 mapId) const
+{
+    return CheckPatch(player, GetMapPatch(mapId));
+}
+
+ProgressionPatch const* ProgressionMgr::GetRequiredPatch(Player const* player, Battleground const* bg) const
+{
+    ProgressionPatch const* required = nullptr;
+    if (bg->IsRandom())
+        required = FindPatch(RANDOM_QUEUES_VERSION);
+    else if (bg->isArena())
+    {
+        // The first patch with an arena season.
+        for (ProgressionPatch const& patch : _patches)
+        {
+            if (patch.ArenaSeason)
+            {
+                required = &patch;
+                break;
+            }
+        }
+    }
+    else
+        required = GetMapPatch(bg->GetMapId());
+
+    return CheckPatch(player, required);
+}
+
+ProgressionPatch const* ProgressionMgr::GetRequiredDungeonFinderPatch(Player const* player, uint32 dungeonId,
+    uint32 mapId) const
+{
+    ProgressionPatch const* required = GetMapPatch(mapId);
+
+    // Random dungeons arrived with the Dungeon Finder in 3.3; with DungeonFinderEveryPatch off, so does
+    // queueing for a particular dungeon, like live.
+    LFGDungeonEntry const* dungeon = sLFGDungeonStore.LookupEntry(dungeonId);
+    if (!_dungeonFinderEveryPatch || (dungeon && dungeon->TypeID == lfg::LFG_TYPE_RANDOM))
+        if (ProgressionPatch const* finder = FindPatch(RANDOM_QUEUES_VERSION); finder && (!required || finder->Id > required->Id))
+            required = finder;
+
+    return CheckPatch(player, required);
+}
+
+void ProgressionMgr::SendRequiresPatch(Player const* player, std::string const& what, ProgressionPatch const& required) const
+{
+    ProgressionPatch const* patch = GetEffectivePatch(player);
+    ChatHandler(player->GetSession()).SendSysMessage(Trinity::StringFormat(
+        "{} needs patch {}; you are in patch {}. Type .patch to see your progress.", what, required.Title(),
+        patch ? patch->Version : "?"));
+}
+
+void ProgressionMgr::EnsureAllowedLocation(Player* player) const
+{
+    MapEntry const* map = sMapStore.LookupEntry(player->GetMapId());
+    if (!map || map->IsBattlegroundOrArena() || !GetRequiredPatch(player, player->GetMapId()))
+        return;
+
+    if (!GetRequiredPatch(player, player->m_homebindMapId))
+    {
+        player->TeleportTo(player->m_homebindMapId, player->m_homebindX, player->m_homebindY, player->m_homebindZ,
+            player->GetOrientation());
+        return;
+    }
+
+    if (PlayerInfo const* info = sObjectMgr->GetPlayerInfo(player->GetRace(), player->GetClass()))
+        player->TeleportTo(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
 }
 
 void ProgressionMgr::ResolveConfig()
@@ -177,7 +301,10 @@ ProgressionPatch const* ProgressionMgr::GetStartPatch(uint8 race, uint8 playerCl
 void ProgressionMgr::OnLogin(Player* player, bool firstLogin) const
 {
     if (GetCharacterPatch(player))
+    {
+        EnsureAllowedLocation(player);
         return;
+    }
 
     ProgressionPatch const* patch = firstLogin ? GetStartPatch(player->GetRace(), player->GetClass()) :
         GetPatch(_existingCharacterId);
@@ -186,4 +313,5 @@ void ProgressionMgr::OnLogin(Player* player, bool firstLogin) const
 
     SetCharacterPatch(player, *patch);
     TC_LOG_INFO("module", "mod-progression: {} starts in patch {}.", player->GetName(), patch->Version);
+    EnsureAllowedLocation(player);
 }
