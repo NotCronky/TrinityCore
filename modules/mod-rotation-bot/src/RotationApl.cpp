@@ -6,6 +6,9 @@
 
 #include "RotationApl.h"
 
+#include "CellImpl.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "ObjectAccessor.h"
 #include "Item.h"
 #include "Pet.h"
@@ -88,6 +91,71 @@ namespace
 
         return targets;
     }
+
+    // Where a spell without a target lands: enemies within Radius of the caster, or in a cone in front.
+    struct CasterArea
+    {
+        float Radius = 0.0f;
+        bool Cone = false;
+    };
+
+    // Whirlwind, Thunder Clap, Frost Nova, Shockwave, Cone of Cold: enemies around or in front of the caster.
+    // Also ground effects placed at the caster (Consecration) and auras whose periodic spell does that
+    // (Bladestorm), one level deep.
+    Optional<CasterArea> GetCasterArea(SpellInfo const* spellInfo, Player* caster, bool followTrigger = true)
+    {
+        if (spellInfo->GetExplicitTargetMask() & (TARGET_FLAG_UNIT_MASK | TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_GAMEOBJECT_MASK))
+            return {};
+
+        for (SpellEffectInfo const& effect : spellInfo->GetEffects())
+        {
+            if (!effect.Effect)
+                continue;
+
+            for (SpellImplicitTargetInfo const* target : { &effect.TargetA, &effect.TargetB })
+            {
+                SpellTargetSelectionCategories category = target->GetSelectionCategory();
+                if ((category == TARGET_SELECT_CATEGORY_AREA || category == TARGET_SELECT_CATEGORY_CONE) &&
+                    target->GetCheckType() == TARGET_CHECK_ENEMY)
+                    return CasterArea{ effect.CalcRadius(caster), category == TARGET_SELECT_CATEGORY_CONE };
+            }
+
+            if (effect.Effect == SPELL_EFFECT_PERSISTENT_AREA_AURA && effect.TargetA.GetReferenceType() == TARGET_REFERENCE_TYPE_CASTER)
+                return CasterArea{ effect.CalcRadius(caster), false };
+
+            if (followTrigger && effect.TriggerSpell)
+                if (SpellInfo const* triggered = sSpellMgr->GetSpellInfo(effect.TriggerSpell))
+                    if (Optional<CasterArea> area = GetCasterArea(triggered, caster, false))
+                        return area;
+        }
+
+        return {};
+    }
+
+    // Like Spell::SelectImplicitConeTargets.
+    constexpr float CONE_ANGLE = float(M_PI) / 2;
+
+    bool InArea(Player* caster, Unit* unit, CasterArea const& area)
+    {
+        return caster->IsWithinDistInMap(unit, area.Radius) && (!area.Cone || caster->HasInArc(CONE_ANGLE, unit));
+    }
+
+    // An enemy in combat (or an enemy player) the spell would hit.
+    class EnemyInAreaCheck
+    {
+    public:
+        EnemyInAreaCheck(Player* caster, CasterArea const& area) : _caster(caster), _area(area) { }
+
+        bool operator()(Unit* unit) const
+        {
+            return unit->IsAlive() && (unit->IsInCombat() || unit->IsPlayer()) && !unit->IsTotem() &&
+                _caster->IsValidAttackTarget(unit) && InArea(_caster, unit, _area);
+        }
+
+    private:
+        Player* _caster;
+        CasterArea _area;
+    };
 }
 
 SpellCastResult RotationApl::Cast(Player* player, AplChoice const& choice)
@@ -121,6 +189,27 @@ SpellCastResult RotationApl::CanCast(Player* player, SpellInfo const* spellInfo,
     // Crowd control into a full set of diminishing returns does nothing.
     if (target != player && GetDiminishingLevel(target, spellInfo) >= DIMINISHING_LEVEL_IMMUNE)
         return SPELL_FAILED_IMMUNE;
+
+    // A spell without a target is cast wherever the caster stands, so it only goes out when it would hit:
+    // its target in reach (and in front, for cones), or with no hostile target, any enemy in reach.
+    if (Optional<CasterArea> area = GetCasterArea(spellInfo, player))
+    {
+        if (target != player && player->IsValidAttackTarget(target))
+        {
+            if (!InArea(player, target, *area))
+                return SPELL_FAILED_OUT_OF_RANGE;
+        }
+        else
+        {
+            Unit* enemy = nullptr;
+            EnemyInAreaCheck check(player, *area);
+            Trinity::UnitSearcher<EnemyInAreaCheck> searcher(player, enemy, check);
+            // Searched a bit wider: large creatures are in reach from further away (their combat reach).
+            Cell::VisitAllObjects(player, searcher, area->Radius + 15.0f);
+            if (!enemy)
+                return SPELL_FAILED_OUT_OF_RANGE;
+        }
+    }
 
     // CheckCast only knows the power cost once the spell is prepared, so check it here. Passing no
     // Spell keeps spell mods from being registered, so proc charges are not touched.

@@ -115,7 +115,12 @@ The first entry that passes all of these is cast:
 
 1. You know the spell. A name covers every rank, and the highest rank you know is cast; entries for spells you haven't learned are skipped.
 2. Its condition holds.
-3. The server would let you cast it right now: cooldown, global cooldown, power, stance, aura states (Overpower, Execute, Victory Rush), range, line of sight and facing. Spells the target is immune to (Divine Shield, Ice Block, Hand of Protection against physical abilities) are skipped, and so is crowd control that diminishing returns would make it immune to. Spells with a cast time are skipped while you move. Heroic Strike and Cleave aren't queued again while one is already queued.
+3. It would hit something. Spells without a target that hit enemies around you (Whirlwind, Thunder Clap,
+   Frost Nova, Consecration, Fan of Knives, and auras such as Bladestorm through the spell they trigger) or
+   in a cone in front of you (Cone of Cold, Shockwave) wait until the entry's target is within the spell's
+   radius (and in front, for cones), or with `on: self`, until any enemy in combat is. The radius comes from
+   the spell data, so profiles don't need range conditions for these.
+4. The server would let you cast it right now: cooldown, global cooldown, power, stance, aura states (Overpower, Execute, Victory Rush), range, line of sight and facing. Spells the target is immune to (Divine Shield, Ice Block, Hand of Protection against physical abilities) are skipped, and so is crowd control that diminishing returns would make it immune to. Spells with a cast time are skipped while you move. Heroic Strike and Cleave aren't queued again while one is already queued.
 
 `target` entries need a hostile target selected. The rotation never moves you, turns you or changes your target.
 
