@@ -17,8 +17,8 @@ A bot you add in game (`.bot add <alt>`) is your companion:
   bots stand at the target, ranged bots 25 yards away, healers stay with you. Spells come from
   mod-rotation-bot, which must be built too (companions turn it on for themselves).
 - **Comes back to life** next to you once the fight is over, if it died.
-- **Eats and drinks** out of combat below 60% health or mana, and stays seated until full unless you
-  walk more than 20 yards away.
+- **Eats and drinks** out of combat below 60% health or mana (or when told to with `.bot eat`), and stays
+  seated while it lasts unless you walk more than 20 yards away or a fight starts.
 - **Nobody starts a fight on their own.** `.bot pull` sends your tank bots (Protection warriors and
   paladins, Blood death knights) at your target; `.bot pull <name>` sends one bot, tank or not. The other
   bots join in once you or a tank are fighting, on the tank's target.
@@ -81,6 +81,7 @@ and the average and worst world tick over the last minute.
 | `.bot gear <name\|all> [spec]` | Class spells, talents in the spec, and gear for the bot's level. |
 | `.bot stay <name\|all>` / `.bot follow <name\|all>` | Companions stay put, or follow you again. |
 | `.bot pull [name]` | Your tank bots (or the named bot) attack your target. |
+| `.bot eat [name\|all]` | Bots out of combat sit down to eat, and drink if they use mana. |
 
 - **In game, everyone can use them, but only for characters on their own account.** Nobody can log in,
   remove or see another account's characters as bots, game masters included.

@@ -48,6 +48,7 @@ public:
             { "stay",      HandleStay,      rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "follow",    HandleFollow,    rbac::RBAC_ROLE_PLAYER, Console::Yes },
             { "pull",      HandlePull,      rbac::RBAC_ROLE_PLAYER, Console::No },
+            { "eat",       HandleEat,       rbac::RBAC_ROLE_PLAYER, Console::Yes },
         };
 
         static ChatCommandTable commandTable =
@@ -152,6 +153,18 @@ public:
             for (std::string const& name : sent)
                 handler->SendSysMessage(Trinity::StringFormat("{} is pulling {}.", name, target->GetName()));
 
+        return true;
+    }
+
+    // .bot eat [name|all]: bots out of combat sit down to eat and drink until full.
+    static bool HandleEat(ChatHandler* handler, Optional<std::string> who)
+    {
+        uint32 eating = 0;
+        for (Bot* bot : sBotMgr.FindBots(GetOwnerAccountId(handler), who.value_or("all")))
+            if (Player* player = bot->GetSession() ? bot->GetSession()->GetPlayer() : nullptr; player && player->IsInWorld())
+                eating += BotCompanion::EatAndDrink(player);
+
+        handler->SendSysMessage(Trinity::StringFormat("{} bot{} eating and drinking.", eating, eating == 1 ? " is" : "s are"));
         return true;
     }
 

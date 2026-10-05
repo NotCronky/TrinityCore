@@ -34,6 +34,10 @@ namespace BotCompanion
     // first), and all bot food and water.
     void RemoveSupplies(Player* bot, std::vector<uint8> const& givenBags);
 
+    // Eats, and drinks if it uses mana, whatever its health and mana (.bot eat). False in combat or without
+    // food or water.
+    bool EatAndDrink(Player* bot);
+
     // Joins the owner's group, making one when there is none.
     void JoinGroup(Player* bot, Player* owner);
 

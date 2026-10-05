@@ -215,6 +215,19 @@ namespace BotCompanion
         }
     }
 
+    bool EatAndDrink(Player* bot)
+    {
+        if (!bot->IsAlive() || bot->IsInCombat())
+            return false;
+
+        bot->GetMotionMaster()->Clear();
+        bot->StopMoving();
+
+        bool ate = bot->HasAuraType(SPELL_AURA_MOD_REGEN) || Consume(bot, FOOD);
+        bool drank = bot->GetPowerType() != POWER_MANA || bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN) || Consume(bot, WATER);
+        return ate || drank;
+    }
+
     void GiveSupplies(Player* bot, std::vector<uint8>& givenBags)
     {
         for (uint8 slot = INVENTORY_SLOT_BAG_START; slot < INVENTORY_SLOT_BAG_END; ++slot)
@@ -374,13 +387,14 @@ namespace BotCompanion
             return;
         }
 
-        // Out of combat: eat and drink below 60%, and stay seated until full unless the owner walks off.
+        // Out of combat: eat and drink below 60%, and stay seated while it lasts unless the owner walks off.
         if (!target && !bot->IsInCombat() && !owner->IsInCombat() && bot->GetDistance(owner) < EAT_DISTANCE)
         {
             bool usesMana = bot->GetPowerType() == POWER_MANA;
             bool eating = bot->HasAuraType(SPELL_AURA_MOD_REGEN);
             bool drinking = bot->HasAuraType(SPELL_AURA_MOD_POWER_REGEN);
-            if ((eating && bot->GetHealthPct() < 100.0f) || (drinking && usesMana && bot->GetPowerPct(POWER_MANA) < 100.0f))
+            // Seated while the food or drink lasts, also when sent to eat at full health (.bot eat).
+            if (eating || drinking)
                 return;
 
             bool ate = !eating && bot->GetHealthPct() < 60.0f && Consume(bot, FOOD);
