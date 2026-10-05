@@ -222,6 +222,15 @@ bool DBUpdater<T>::Update(DatabaseWorkerPool<T>& pool)
         [&](Path const& file) { DBUpdater<T>::ApplyFile(pool, file); },
             [&](std::string const& query) -> QueryResult { return DBUpdater<T>::Retrieve(pool, query); });
 
+    // Modules keep their updates in modules/<name>/sql/<auth|characters|world>/
+    std::string const tableName = DBUpdater<T>::GetTableName();
+    if (tableName == "Auth")
+        updateFetcher.SetModuleSqlDirectoryName("auth");
+    else if (tableName == "Character")
+        updateFetcher.SetModuleSqlDirectoryName("characters");
+    else if (tableName == "World")
+        updateFetcher.SetModuleSqlDirectoryName("world");
+
     UpdateResult result;
     try
     {

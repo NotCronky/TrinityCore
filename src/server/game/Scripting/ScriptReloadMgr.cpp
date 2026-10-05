@@ -575,6 +575,18 @@ public:
         return dir;
     }
 
+    /// Returns the absolute path to the sources of the given script module,
+    /// which is src/server/scripts/<module> or modules/<module>/src.
+    static fs::path GetSourceDirectoryOfModule(std::string const& module_name)
+    {
+        fs::path dir = GetSourceDirectory() / module_name;
+        fs::path const module_dir = fs::path(BuiltInConfig::GetSourceDirectory()) / "modules" / module_name / "src";
+        if (!fs::is_directory(dir) && fs::is_directory(module_dir))
+            return module_dir;
+
+        return dir;
+    }
+
     /// Initializes the file watchers and loads all existing shared libraries
     /// into the running server.
     void Initialize() final override
@@ -936,7 +948,7 @@ private:
 
         // Create the source listener
         auto listener = std::make_unique<SourceUpdateListener>(
-            sScriptReloadMgr->GetSourceDirectory() / module_name,
+            sScriptReloadMgr->GetSourceDirectoryOfModule(module_name),
             module_name);
 
         // Store the module

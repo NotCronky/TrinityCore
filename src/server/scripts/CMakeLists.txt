@@ -113,7 +113,9 @@ function(ConfigureScriptLoader SCRIPTLOADER_NAME LOADER_OUT IS_DYNAMIC_SCRIPTLOA
   # The current script project which is built in
   set(TRINITY_CURRENT_SCRIPT_PROJECT ${SCRIPTLOADER_NAME})
   foreach(LOCALE_SCRIPT_MODULE ${ARGN})
-    # Determine the loader function ("Add##${NameOfDirectory}##Scripts()")
+    # Determine the loader function ("Add##${NameOfDirectory}##Scripts()"),
+    # e.g. "Addmod_helloScripts()" for modules/mod-hello
+    string(MAKE_C_IDENTIFIER ${LOCALE_SCRIPT_MODULE} LOCALE_SCRIPT_MODULE)
     set(LOADER_FUNCTION
       "Add${LOCALE_SCRIPT_MODULE}Scripts()")
     # Generate the funciton call and the forward declarations
@@ -134,6 +136,13 @@ endfunction()
 foreach(SCRIPT_MODULE ${SCRIPT_MODULE_LIST})
   GetPathToScriptModule(${SCRIPT_MODULE} SCRIPT_MODULE_PATH)
   ScriptModuleNameToVariable(${SCRIPT_MODULE} SCRIPT_MODULE_VARIABLE)
+  GetModuleRootOfScriptModule(${SCRIPT_MODULE} MODULE_ROOT)
+  unset(MODULE_INCLUDE_DIRECTORIES)
+  if(MODULE_ROOT AND NOT ${SCRIPT_MODULE_VARIABLE} STREQUAL "disabled")
+    # Modules in modules/ may include their headers from any of their source directories
+    CollectIncludeDirectories(${SCRIPT_MODULE_PATH} MODULE_INCLUDE_DIRECTORIES)
+    InstallModuleConfigs(${MODULE_ROOT})
+  endif()
 
   if((${SCRIPT_MODULE_VARIABLE} STREQUAL "disabled") OR
       (${SCRIPT_MODULE_VARIABLE} STREQUAL "static"))
@@ -146,6 +155,10 @@ foreach(SCRIPT_MODULE ${SCRIPT_MODULE_LIST})
       list(APPEND STATIC_SCRIPT_MODULES ${SCRIPT_MODULE})
       # Add the module content to the whole static module
       CollectSourceFiles(${SCRIPT_MODULE_PATH} PRIVATE_SOURCES)
+      list(APPEND STATIC_MODULE_INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES})
+      if(MODULE_ROOT)
+        list(APPEND STATIC_MODULES_IN_MODULES_DIR ${SCRIPT_MODULE})
+      endif()
     endif()
   elseif(${SCRIPT_MODULE_VARIABLE} STREQUAL "dynamic")
     # Generate an own dynamic module which is loadable on runtime
@@ -169,12 +182,18 @@ foreach(SCRIPT_MODULE ${SCRIPT_MODULE_LIST})
 
     target_include_directories(${SCRIPT_MODULE_PROJECT_NAME}
       PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR})
+        ${CMAKE_CURRENT_SOURCE_DIR}
+      PRIVATE
+        ${MODULE_INCLUDE_DIRECTORIES})
 
     set_target_properties(${SCRIPT_MODULE_PROJECT_NAME}
       PROPERTIES
         COMPILE_WARNING_AS_ERROR ${WITH_WARNINGS_AS_ERRORS}
         FOLDER "scripts")
+
+    if(MODULE_ROOT)
+      IncludeModuleCMake(${SCRIPT_MODULE} ${MODULE_ROOT} ${SCRIPT_MODULE_PROJECT_NAME})
+    endif()
 
     if(UNIX)
       install(TARGETS ${SCRIPT_MODULE_PROJECT_NAME}
@@ -216,12 +235,19 @@ target_link_libraries(scripts
 
 target_include_directories(scripts
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR})
+    ${CMAKE_CURRENT_SOURCE_DIR}
+  PRIVATE
+    ${STATIC_MODULE_INCLUDE_DIRECTORIES})
 
 set_target_properties(scripts
   PROPERTIES
     COMPILE_WARNING_AS_ERROR ${WITH_WARNINGS_AS_ERRORS}
     FOLDER "server")
+
+foreach(SCRIPT_MODULE ${STATIC_MODULES_IN_MODULES_DIR})
+  GetModuleRootOfScriptModule(${SCRIPT_MODULE} MODULE_ROOT)
+  IncludeModuleCMake(${SCRIPT_MODULE} ${MODULE_ROOT} scripts)
+endforeach()
 
 # Generate precompiled header
 if(USE_SCRIPTPCH)

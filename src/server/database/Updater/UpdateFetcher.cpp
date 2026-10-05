@@ -124,6 +124,23 @@ UpdateFetcher::DirectoryStorage UpdateFetcher::ReceiveIncludedDirectories() cons
 
     } while (result->NextRow());
 
+    if (!_moduleSqlDirectoryName.empty())
+    {
+        Path const modulesDirectory = *_sourceDirectory / "modules";
+        if (is_directory(modulesDirectory))
+        {
+            for (directory_iterator itr(modulesDirectory); itr != directory_iterator(); ++itr)
+            {
+                Path const p = itr->path() / "sql" / _moduleSqlDirectoryName;
+                if (!is_directory(p))
+                    continue;
+
+                directories.push_back({ p, RELEASED });
+                TC_LOG_TRACE("sql.updates", "Added module update directory \"{}\".", p.generic_string());
+            }
+        }
+    }
+
     return directories;
 }
 

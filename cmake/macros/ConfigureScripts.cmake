@@ -28,10 +28,32 @@ function(GetScriptsBasePath variable)
   set(${variable} "${CMAKE_SOURCE_DIR}/src/server/scripts" PARENT_SCOPE)
 endfunction()
 
+# Returns the base path to the modules directory in the source directory
+function(GetModulesBasePath variable)
+  set(${variable} "${CMAKE_SOURCE_DIR}/modules" PARENT_SCOPE)
+endfunction()
+
+# Stores the root directory of the given module in the variable
+# when it is a module in modules/, or an empty string otherwise
+function(GetModuleRootOfScriptModule module variable)
+  GetScriptsBasePath(SCRIPTS_BASE_PATH)
+  GetModulesBasePath(MODULES_BASE_PATH)
+  if(NOT IS_DIRECTORY "${SCRIPTS_BASE_PATH}/${module}" AND IS_DIRECTORY "${MODULES_BASE_PATH}/${module}/src")
+    set(${variable} "${MODULES_BASE_PATH}/${module}" PARENT_SCOPE)
+  else()
+    set(${variable} "" PARENT_SCOPE)
+  endif()
+endfunction()
+
 # Stores the absolut path of the given module in the variable
 function(GetPathToScriptModule module variable)
-  GetScriptsBasePath(SCRIPTS_BASE_PATH)
-  set(${variable} "${SCRIPTS_BASE_PATH}/${module}" PARENT_SCOPE)
+  GetModuleRootOfScriptModule(${module} MODULE_ROOT)
+  if(MODULE_ROOT)
+    set(${variable} "${MODULE_ROOT}/src" PARENT_SCOPE)
+  else()
+    GetScriptsBasePath(SCRIPTS_BASE_PATH)
+    set(${variable} "${SCRIPTS_BASE_PATH}/${module}" PARENT_SCOPE)
+  endif()
 endfunction()
 
 # Stores the project name of the given module in the variable
@@ -55,13 +77,28 @@ function(GetScriptModuleList variable)
       list(APPEND ${variable} ${SCRIPT_MODULE})
     endif()
   endforeach()
+
+  # Modules in modules/<name>/ with their sources in modules/<name>/src
+  GetModulesBasePath(MODULES_BASE_PATH)
+  file(GLOB LOCALE_MODULE_LIST RELATIVE
+    ${MODULES_BASE_PATH}
+    ${MODULES_BASE_PATH}/*)
+  foreach(MODULE ${LOCALE_MODULE_LIST})
+    if(IS_DIRECTORY "${MODULES_BASE_PATH}/${MODULE}/src")
+      if(MODULE IN_LIST ${variable})
+        message(FATAL_ERROR "Module \"${MODULE}\" has the same name as the script directory src/server/scripts/${MODULE}, rename the module.")
+      endif()
+      list(APPEND ${variable} ${MODULE})
+    endif()
+  endforeach()
   set(${variable} ${${variable}} PARENT_SCOPE)
 endfunction()
 
 # Converts the given script module name into it's
 # variable name which holds the linkage type.
 function(ScriptModuleNameToVariable module variable)
-  string(TOUPPER ${module} ${variable})
+  string(MAKE_C_IDENTIFIER ${module} ${variable})
+  string(TOUPPER ${${variable}} ${variable})
   set(${variable} "SCRIPTS_${${variable}}")
   set(${variable} ${${variable}} PARENT_SCOPE)
 endfunction()
@@ -102,5 +139,55 @@ function(GetInstallOffset variable)
     set(${variable} "${CMAKE_INSTALL_PREFIX}/scripts" PARENT_SCOPE)
   else()
     set(${variable} "${CMAKE_INSTALL_PREFIX}/bin/scripts" PARENT_SCOPE)
+  endif()
+endfunction()
+
+# Installs the config files of a module (modules/<name>/conf/*.conf.dist) into
+# worldserver.conf.d, which the worldserver loads after worldserver.conf.
+# The .conf.dist is replaced on every install; the .conf is only created
+# when it doesn't exist yet, so changed settings are kept.
+function(InstallModuleConfigs module_root)
+  file(GLOB MODULE_CONFIGS "${module_root}/conf/*.conf.dist")
+  if(NOT COPY_CONF OR NOT MODULE_CONFIGS)
+    return()
+  endif()
+
+  if(WIN32)
+    set(MODULE_CONF_DIR "${CMAKE_INSTALL_PREFIX}/worldserver.conf.d")
+  else()
+    set(MODULE_CONF_DIR "${CONF_DIR}/worldserver.conf.d")
+  endif()
+
+  install(FILES ${MODULE_CONFIGS} DESTINATION "${MODULE_CONF_DIR}")
+  foreach(MODULE_CONFIG ${MODULE_CONFIGS})
+    # The config loader only reads the settings under the file's first section
+    file(STRINGS "${MODULE_CONFIG}" MODULE_CONFIG_SECTION REGEX "^\\[worldserver\\]")
+    if(NOT MODULE_CONFIG_SECTION)
+      message(WARNING "${MODULE_CONFIG} has no [worldserver] section header, so the worldserver will ignore its settings.")
+    endif()
+
+    get_filename_component(MODULE_CONFIG_NAME "${MODULE_CONFIG}" NAME)
+    string(REGEX REPLACE "\\.dist$" "" MODULE_CONFIG_NAME "${MODULE_CONFIG_NAME}")
+    install(CODE "
+      if(NOT EXISTS \"\$ENV{DESTDIR}${MODULE_CONF_DIR}/${MODULE_CONFIG_NAME}\")
+        message(STATUS \"Creating: \$ENV{DESTDIR}${MODULE_CONF_DIR}/${MODULE_CONFIG_NAME}\")
+        configure_file(\"${MODULE_CONFIG}\" \"\$ENV{DESTDIR}${MODULE_CONF_DIR}/${MODULE_CONFIG_NAME}\" COPYONLY)
+      endif()
+    ")
+  endforeach()
+endfunction()
+
+# Includes modules/<name>/module.cmake when the module has one, so the module
+# can add libraries, include directories or definitions to the target its
+# sources are built into. Available in module.cmake:
+#   MODULE_NAME   the module's directory name, e.g. mod-hello
+#   MODULE_ROOT   the module's root directory
+#   MODULE_TARGET the target the module is built into ("scripts" when static)
+function(IncludeModuleCMake module module_root target)
+  if(EXISTS "${module_root}/module.cmake")
+    set(MODULE_NAME ${module})
+    set(MODULE_ROOT ${module_root})
+    set(MODULE_TARGET ${target})
+    include("${module_root}/module.cmake")
   endif()
 endfunction()

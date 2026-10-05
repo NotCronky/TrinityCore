@@ -1,0 +1,6 @@
+# Modules are their own git repositories; only track the docs and the example.
+# To keep a module in this repository instead, add a line like: !/mod-name/
+/*
+!/.gitignore
+!/README.md
+!/mod-hello/

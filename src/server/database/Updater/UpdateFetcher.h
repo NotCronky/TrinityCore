@@ -60,6 +60,9 @@ public:
     UpdateResult Update(bool const redundancyChecks, bool const allowRehash,
                   bool const archivedRedundancy, int32 const cleanDeadReferencesMaxCount) const;
 
+    // Also applies the updates in modules/<name>/sql/<directoryName>/ of every module
+    void SetModuleSqlDirectoryName(std::string const& directoryName) { _moduleSqlDirectoryName = directoryName; }
+
 private:
     enum UpdateMode
     {
@@ -138,6 +141,8 @@ private:
     std::function<void(std::string const&)> const _apply;
     std::function<void(Path const& path)> const _applyFile;
     std::function<QueryResult(std::string const&)> const _retrieve;
+
+    std::string _moduleSqlDirectoryName;
 };
 
 #endif // UpdateFetcher_h__
